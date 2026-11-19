@@ -1,5 +1,7 @@
 # 阶段一交付 Tag 说明
 
+> 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`。阶段一 tag 内的文件仍保留旧仓库名，属于历史快照；GitHub 旧链接自动重定向。
+
 ## 当前最终 tag
 
 | 项目 | 内容 |
@@ -10,7 +12,7 @@
 | 指向 commit | `b73d91bf0f8178b85ee1a1baa48cee8ac9bed7a6` |
 | 提交信息 | `docs(release): 补 stage1-v1.4 交叉评审收口` |
 | 打 tag 日期 | 2026-11-12 |
-| GitHub 链接 | https://github.com/aily-rx/ai-chat-stage1/tree/stage1-v1.4 |
+| GitHub 链接 | https://github.com/aily-rx/ai-chat/tree/stage1-v1.4 |
 
 Tag 说明：
 
@@ -31,8 +33,8 @@ Tag 说明：
 干净目录获取最终 tag：
 
 ```bash
-git clone --branch stage1-v1.4 --depth 1 https://github.com/aily-rx/ai-chat-stage1.git
-cd ai-chat-stage1
+git clone --branch stage1-v1.4 --depth 1 https://github.com/aily-rx/ai-chat.git
+cd ai-chat
 ```
 
 已有仓库切换到最终 tag：

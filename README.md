@@ -1,13 +1,16 @@
-# ai-chat-stage1
+# ai-chat
 
-阶段一实践项目：Vue3 + Spring Boot + DeepSeek API 的流式对话应用，并包含公文要素结构化抽取接口。Dify 1.19.0 作为独立交付物单独部署，不接入主链路。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二进入 RAG 知识库与 Agent 工作流开发。
+
+> 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
 | 项目 | 内容 |
 |---|---|
-| GitHub | https://github.com/aily-rx/ai-chat-stage1 |
-| 最终交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
-| 主链路 | Vue3（5173）→ Spring Boot（8080）→ DeepSeek API |
-| 交付状态 | S0–S8 已完成；PR [#1](https://github.com/aily-rx/ai-chat-stage1/pull/1)–[#5](https://github.com/aily-rx/ai-chat-stage1/pull/5) 已合并；协作评审意见已处理 |
+| GitHub | https://github.com/aily-rx/ai-chat |
+| 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
+| 阶段二交付 tag | `stage2-v1.0`（开发中；需求见根目录 `docs/07-阶段二需求文档.md`） |
+| 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二将接入 Dify 知识库/Workflow |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二需求已确认，开发未开始 |
 
 ## 一、功能与请求链路
 
@@ -56,7 +59,7 @@ npm -v
 ## 三、目录结构
 
 ```text
-ai-chat-stage1/
+ai-chat/
 ├─ frontend/                         # Vue3 + Vite
 │  ├─ src/api/                       # chat / extract / health 请求封装
 │  ├─ src/components/                # 消息、输入框、抽取结果等组件
@@ -192,8 +195,8 @@ git grep -nE 'sk-[A-Za-z0-9]{20,}' || echo "no real key in tracked files"
 ### 6.1 获取代码
 
 ```bash
-git clone --branch stage1-v1.4 --depth 1 https://github.com/aily-rx/ai-chat-stage1.git
-cd ai-chat-stage1
+git clone --branch stage1-v1.4 --depth 1 https://github.com/aily-rx/ai-chat.git
+cd ai-chat
 ```
 
 已有仓库则切换到最终 tag：

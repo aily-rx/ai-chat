@@ -12,9 +12,9 @@
     </parent>
 
     <groupId>com.ailyrx</groupId>
-    <artifactId>ai-chat-stage1-backend</artifactId>
+    <artifactId>ai-chat-backend</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>ai-chat-stage1-backend</name>
+    <name>ai-chat-backend</name>
     <description>Stage 1 backend: streaming chat and structured extraction</description>
 
     <properties>

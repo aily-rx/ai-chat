@@ -1,11 +1,13 @@
 # PR 与评审记录
 
+> 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；以下 PR 链接已更新到新仓库路径，旧链接由 GitHub 自动重定向。
+
 ## PR #1：阶段一全栈链路
 
 | 项目 | 内容 |
 |---|---|
 | 标题 | feat: 阶段一全栈链路（流式对话 + 结构化抽取 + 文档） |
-| 链接 | https://github.com/aily-rx/ai-chat-stage1/pull/1 |
+| 链接 | https://github.com/aily-rx/ai-chat/pull/1 |
 | 源分支 | `feat/s1-project-skeleton` |
 | 目标分支 | `main` |
 | 状态 | 已合并；合并 commit `1c96bb3`，随后打初始 tag `stage1-v1` |
@@ -22,16 +24,16 @@
 
 评论链接：
 
-- https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4533639368
-- https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4533639391
-- https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4533639402
+- https://github.com/aily-rx/ai-chat/pull/1#discussion_r4533639368
+- https://github.com/aily-rx/ai-chat/pull/1#discussion_r4533639391
+- https://github.com/aily-rx/ai-chat/pull/1#discussion_r4533639402
 
 ## PR #2：Prompt 外置与样例补全
 
 | 项目 | 内容 |
 |---|---|
 | 标题 | fix(prompt): 外置 Prompt 模板并补全样例说明 |
-| 链接 | https://github.com/aily-rx/ai-chat-stage1/pull/2 |
+| 链接 | https://github.com/aily-rx/ai-chat/pull/2 |
 | 源分支 | `fix/s1-prompt-externalization` |
 | 目标分支 | `main` |
 | 合并 commit | `24e7fd0` |
@@ -45,7 +47,7 @@
 | 项目 | 内容 |
 |---|---|
 | 标题 | docs(release): 收口真实后端配置与验收证据 |
-| 链接 | https://github.com/aily-rx/ai-chat-stage1/pull/3 |
+| 链接 | https://github.com/aily-rx/ai-chat/pull/3 |
 | 源分支 | `chore/s1-baseline-docs` |
 | 目标分支 | `main` |
 | 合并 commit | `ce3fbe2` |
@@ -59,7 +61,7 @@
 | 项目 | 内容 |
 |---|---|
 | 标题 | test(acceptance): 补全长回答与长文本抽取验证 |
-| 链接 | https://github.com/aily-rx/ai-chat-stage1/pull/4 |
+| 链接 | https://github.com/aily-rx/ai-chat/pull/4 |
 | 源分支 | `test/s1-long-content` |
 | 目标分支 | `main` |
 | 合并 commit | `f816180` |
@@ -73,7 +75,7 @@
 | 项目 | 内容 |
 |---|---|
 | 标题 | chore(release): 完成阶段一最终收口 |
-| 链接 | https://github.com/aily-rx/ai-chat-stage1/pull/5 |
+| 链接 | https://github.com/aily-rx/ai-chat/pull/5 |
 | 源分支 | `chore/s1-final-closeout` |
 | 目标分支 | `main` |
 | 状态 | 已合并；合并后建立 tag `stage1-v1.1`（后续由 `stage1-v1.4` 取代为最终交付） |
@@ -93,9 +95,9 @@ PR #1 合并后，`zhongBY526` 补充 3 条行内评审意见，已在 `9ae78fb`
 
 原评论与回复：
 
-- [截断判定](https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4547721711) → [回复](https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4548107324)
-- [SSE 反缓冲](https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4547762749) → [回复](https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4548107724)
-- [抽取温度](https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4547844719) → [回复](https://github.com/aily-rx/ai-chat-stage1/pull/1#discussion_r4548108481)
+- [截断判定](https://github.com/aily-rx/ai-chat/pull/1#discussion_r4547721711) → [回复](https://github.com/aily-rx/ai-chat/pull/1#discussion_r4548107324)
+- [SSE 反缓冲](https://github.com/aily-rx/ai-chat/pull/1#discussion_r4547762749) → [回复](https://github.com/aily-rx/ai-chat/pull/1#discussion_r4548107724)
+- [抽取温度](https://github.com/aily-rx/ai-chat/pull/1#discussion_r4547844719) → [回复](https://github.com/aily-rx/ai-chat/pull/1#discussion_r4548108481)
 
 对应修复提交：`9ae78fb`（`fix(chat): 处理 PR #1 评审意见`）。
 

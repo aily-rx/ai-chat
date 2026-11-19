@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: ai-chat-stage1
+    name: ai-chat
   config:
     import:
       - optional:file:./.env[.properties]

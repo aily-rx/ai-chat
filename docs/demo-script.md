@@ -24,7 +24,7 @@
 ## 0.1 演示前检查（提前 10 分钟）
 
 ```bash
-cd ai-chat-stage1
+cd ai-chat
 git status
 git log --oneline -3
 git tag -l
@@ -55,7 +55,7 @@ npm install
 ## 1. 启动后端（约 1 分钟）
 
 ```bash
-cd ai-chat-stage1
+cd ai-chat
 mvn -f backend/pom.xml test
 mvn -f backend/pom.xml spring-boot:run
 ```
@@ -71,7 +71,7 @@ curl -i http://localhost:8080/api/health
 ## 2. 启动前端（约 30 秒）
 
 ```bash
-cd ai-chat-stage1/frontend
+cd ai-chat/frontend
 npm run dev
 ```
 
