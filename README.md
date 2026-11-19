@@ -429,5 +429,7 @@ feat(chat): 增加 SSE 流式对话接口
 - [PR 与评审记录](docs/pr-log.md)
 - [阶段一汇报单](docs/report-stage1.md)
 - [演示脚本](docs/demo-script.md)
+- [学习笔记](docs/learning-notes-stage1.md)
+- [仓库 Tag 说明](docs/release-tag.md)
 - [抽取样例 JSON](docs/samples/extract-normal.json)
 - [Prompt 样例](prompts/chat-formal.md)
