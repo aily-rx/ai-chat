@@ -25,3 +25,7 @@ Thumbs.db
 
 # local runtime
 logs/
+
+# stage 2: real materials and eval exports (never commit)
+data/docs/
+data/eval/
