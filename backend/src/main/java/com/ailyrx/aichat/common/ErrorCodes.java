@@ -5,6 +5,7 @@ package com.ailyrx.aichat.common;
  */
 public final class ErrorCodes {
 
+    public static final int INVALID_PARAMETER = 4000;
     public static final int MODEL_CALL_FAILED = 5001;
     public static final int EXTRACTION_PARSE_FAILED = 5003;
 

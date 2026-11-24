@@ -1,6 +1,6 @@
-# 阶段二技术验证记录（S0）
+# 阶段二技术验证记录（S0–S1）
 
-> 状态：S0 已通过（2026-11-24）；S1 未开始
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）
 > 关联：`docs/08-阶段二执行计划.md` v1.1 S0；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
@@ -77,4 +77,14 @@
 
 ## 5. 结论
 
-S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 human_input（Web App 暂停-提交-恢复）均验证通过；可以进入 S1。
+S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 human_input（Web App 暂停-提交-恢复）均验证通过。S1 后端纵切已于 2026-11-24 完成，见第 6 节；可以进入 S2。
+
+## 6. S1 完成记录（2026-11-24）
+
+- 后端新增 `com.ailyrx.aichat.kb` 纵切：`POST /api/kb/documents` 接收 `multipart/form-data` 的 `file` 字段；`GET /api/kb/documents` 按 `createdAt` 倒序返回。
+- 校验扩展名 `pdf/docx/txt/md`、大小 ≤20MB、空文件与文件名清洗；校验失败返回 HTTP 400 + `code=4000`；multipart 超限异常同样映射为 400 + `4000`，不泄露上游堆栈。
+- 元数据暂存内存（`DocumentStore` 接口 + `InMemoryDocumentStore`），初始状态 `PENDING`，`chunkCount/errorMessage` 可为空；重启后清空为已知限制。
+- 上传/列表响应与日志均通过 `TraceIdFilter` 贯通 traceId。
+- 测试：`DocumentControllerTest` 7/7；后端全套 41/41，阶段一测试无回归。
+- 真实 `curl` 验收：合法 `notice.txt` → 200 + `PENDING`；`notice.exe` → 400 + `4000`；21MB PDF → 400 + `4000`，未出现未处理 500。
+- 限制：S1 尚未调用 Dify，状态流转与批量入库在 S2 实施。

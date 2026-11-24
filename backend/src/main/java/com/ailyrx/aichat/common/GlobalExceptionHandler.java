@@ -12,6 +12,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -27,13 +28,20 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .orElse("参数校验失败");
         return ResponseEntity.badRequest()
-                .body(ApiResponse.error(4000, message, resolveTraceId(request)));
+                .body(ApiResponse.error(ErrorCodes.INVALID_PARAMETER, message, resolveTraceId(request)));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnreadableBody(HttpServletRequest request) {
         return ResponseEntity.badRequest()
-                .body(ApiResponse.error(4000, "请求体格式错误", resolveTraceId(request)));
+                .body(ApiResponse.error(ErrorCodes.INVALID_PARAMETER, "请求体格式错误", resolveTraceId(request)));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(HttpServletRequest request) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(
+                        ErrorCodes.INVALID_PARAMETER, "文件大小不能超过20MB", resolveTraceId(request)));
     }
 
     @ExceptionHandler(Exception.class)
