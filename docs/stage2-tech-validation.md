@@ -1,6 +1,6 @@
 # 阶段二技术验证记录（S0–S2）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S4 Dify 应用预检通过（2026-11-25，后端 S4 尚未实现）
 > 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S2；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
@@ -121,5 +121,22 @@ S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 hum
 
 - **来源 URL 未补录**：清单中的来源目前为“中国政府网（URL 待补录）”，需补充具体页面 URL；不得编造。可用脚本的 `--source-map` 传入 `{文件名: URL}` 后重新生成清单。
 - **策略 A 碎段风险**：Dify `max_tokens` 是 token 上限，不是字符数；A 在 500 token 下出现标题行孤立（《基金会管理条例》最短 5 字）。A 的整体字符范围 5–500，B 为 186–800。S6 评测前需评估是否接受该偏差，或调整 A 参数/后处理；不得在评测报告中隐去。
-- **Dify 应用 Key 未就绪**：当前只有知识库 dataset Key；S4 的 RAG 流式对话需要 Dify 应用 API Key，尚未配置。
+- **Dify 应用 Key 已就绪**：`DIFY_APP_API_KEY` 已写入本地 `.env`，应用预检见第 8 节；本文不记录 Key 内容。
 - 文档元数据仍为内存存储，后端重启清空，属于计划内已知限制。
+
+## 8. S4 Dify 应用预检（2026-11-25）
+
+本节只验证 Dify 应用侧，不代表后端 S4 已实现。
+
+| 项目 | 方式 | 结果 |
+|---|---|---|
+| 应用 Key | `GET /v1/parameters` | 200 |
+| 流式问答 | `POST /v1/chat-messages`，`response_mode=streaming` | 200，`text/event-stream` |
+| 流事件 | 解析 SSE | `workflow_started/node_started/node_finished/reasoning_chunk/message/message_end/workflow_finished` |
+| 知识库命中 | 问题“中医药传统知识保护条例什么时候施行？” | 回答含“自2027年1月1日起施行”；`message_end.metadata.retriever_resources` 4 条 |
+| 引用字段 | 检查 `retriever_resources` | `document_name`、`segment_position`、`score` 可用；示例首条为中医药条例 segment 1，score 0.7783 |
+| 思考内容 | 检查流式回答 | 已无 `<think>`；`reasoning_chunk` 事件仍存在，后端不得转发为 `message` |
+| 拒答 | 问题“请介绍火星上的中医诊所。” | 回答“资料不足，无法回答该问题。”；Dify 仍返回 4 条低分资源 |
+
+- 模型按用户确认使用 Dify 中的 `deepseek-v4` 系列；应用界面实际显示 `deepseek-v4-flash`。阶段一后端的 `deepseek-chat` 仅用于旧接口，不用于本阶段 RAG 评测；评测报告需记录 Dify 实际模型名。
+- S4 映射要求：只把 `event: message` 的增量映射为 SSE `message`；忽略 `reasoning_chunk`；拒答时不生成 `citations`；`citations` 必须在 `done` 前发送。
