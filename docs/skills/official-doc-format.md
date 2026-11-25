@@ -170,11 +170,12 @@
    - 格式通过后：`POST http://host.docker.internal:8080/api/terms/check`。
 4. 格式不通过 → 输出“格式校验未通过 + 问题列表 + 原草稿”；不进入用语检查。
 5. 用语命中 → 输出“术语检查发现需调整项 + 命中位置 + 原草稿”。
-6. 全部通过 → 输出草稿。
+6. 全部通过 → 输出草稿；格式问题、术语命中与工具兜底输出也会合并后进入 `human_confirm` 人工确认，未经确认不得导出。
 7. HTTP 节点启用 `fail-branch`：连接失败、超时或非 2xx 时进入兜底节点，输出“工具暂时不可用 + 原草稿”，工作流状态为 `partial-succeeded`，不得向用户返回上游异常细节。
-8. 后端代理 `/api/workflow/run/stream` 接受 `succeeded` 与 `partial-succeeded`；工具失败不会中断 SSE，仍发送 `message` 与 `done`。
-9. 后端调用 Dify 时携带 `X-Trace-Id`，并以 `ai-chat-workflow-<traceId>` 作为 Dify `user`；日志只记录 traceId、状态和数量，不记录正文、问题明细或密钥。
-10. Dify 的 HTTP 节点经 SSRF 代理访问本机后端，需在 Dify 部署中允许 `host.docker.internal`（本次验证通过 `SSRF_PROXY_ALLOW_PRIVATE_DOMAINS=host.docker.internal`）。
+8. 后端代理 `/api/workflow/run/stream` 接受 `succeeded` 与 `partial-succeeded`；工具失败不会中断 SSE，仍发送 `message` 与 `done`。暂停在人工确认节点时返回 `done.status=WAITING_CONFIRM`，并携带 `runId`。
+9. 人工确认后调用 `POST /api/workflow/{runId}/confirm`；`modify` 时必须提交非空正文。仅 `SUCCEEDED` 状态允许导出 Markdown/DOCX；未确认、已驳回、已过期或记录不存在不得导出。
+10. 后端调用 Dify 时携带 `X-Trace-Id`，并以 `ai-chat-workflow-<traceId>` 作为 Dify `user`；日志只记录 traceId、状态和数量，不记录正文、问题明细、表单 token 或密钥。
+11. Dify 的 HTTP 节点经 SSRF 代理访问本机后端，需在 Dify 部署中允许 `host.docker.internal`（本次验证通过 `SSRF_PROXY_ALLOW_PRIVATE_DOMAINS=host.docker.internal`）。
 
 ## 7. 错误处理
 
@@ -185,6 +186,8 @@
 | 后端内部异常 | 500 | 5000 | 返回通用错误与 traceId，不返回堆栈 |
 | Workflow 执行失败 | SSE `error` | 5004 | 发送 error 后结束，不发送 done |
 | 工具超时/非 2xx | 工作流内 | — | 进入 fail-branch 兜底，不发 error |
+| 非法动作、重复确认、已过期 | 200 | 5005 | 不修改运行状态，前端刷新后重试 |
+| 未确认导出、不支持的格式 | 200 | 5006 | 不生成文件，不返回服务器异常 |
 
 调用方不应根据 `WARN` 阻止输出；需要严格把关时，以 `passed=false` 或 `count>0` 决定是否进入人工确认。
 

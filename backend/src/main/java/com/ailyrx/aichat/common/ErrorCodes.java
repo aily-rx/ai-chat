@@ -10,6 +10,8 @@ public final class ErrorCodes {
     public static final int DIFY_UNAVAILABLE = 5002;
     public static final int EXTRACTION_PARSE_FAILED = 5003;
     public static final int WORKFLOW_FAILED = 5004;
+    public static final int CONFIRM_INVALID = 5005;
+    public static final int EXPORT_FAILED = 5006;
 
     private ErrorCodes() {
     }

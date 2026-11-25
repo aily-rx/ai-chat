@@ -5,6 +5,7 @@ import ChatView from './views/ChatView.vue'
 import ExtractView from './views/ExtractView.vue'
 import KnowledgeView from './views/KnowledgeView.vue'
 import RagView from './views/RagView.vue'
+import WorkflowView from './views/WorkflowView.vue'
 import { checkHealth } from './api/health'
 import { USE_MOCK } from './api/config'
 
@@ -43,6 +44,7 @@ onMounted(refreshHealth)
       <KnowledgeView v-if="activeTab === 'kb'" />
       <RagView v-show="activeTab === 'rag'" />
       <ExtractView v-show="activeTab === 'extract'" />
+      <WorkflowView v-if="activeTab === 'workflow'" />
     </main>
   </div>
 </template>

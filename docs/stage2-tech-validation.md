@@ -1,7 +1,7 @@
-# 阶段二技术验证记录（S0–S7）
+# 阶段二技术验证记录（S0–S8）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）；S7 Dify Workflow、格式/术语工具、条件分支和工具超时兜底已完成并通过双路径验收（2026-11-25）
-> 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S7；`docs/07-阶段二需求文档.md` v1.0
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）；S7 Dify Workflow、格式/术语工具、条件分支和工具超时兜底已完成并通过双路径验收（2026-11-25）；S8 人工确认、状态查询、Markdown/DOCX 导出与前端流程页已完成并通过真实 Dify 闭环验收（2026-11-25）
+> 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S8；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
 ## 1. 环境基线
@@ -367,3 +367,50 @@ S5 通过（2026-11-25）。前端 RAG 问答、引用卡片与点击定位高�
 ### 13.5 验收结论
 
 S7 通过（2026-11-25）。格式/术语工具、Dify Workflow、后端 SSE 代理、Dify 控制台与后端两条运行路径均跑通；格式不通过、术语命中、格式/术语工具超时四种情况均按预期分流，工具失败不中断工作流；全量后端测试 93/93 通过。
+
+## 14. S8 人工确认、状态查询与导出（2026-11-25）
+
+### 14.1 已实现
+
+- Dify Workflow 发布 `s8-v1.0`（发布记录 ID `83f85623-25f2-4e46-8f77-22d7648ee60d`）：在 `final_agg` 与 `end` 之间新增 `human-input` 节点 `human_confirm`，动作 `approve/modify/reject`，三个动作均连接到 `end`；结束节点输出改为 `human_confirm.content`。DSL 见 `dify/dsl/official-doc-workflow-s8.yml`。
+- 运行状态模型：`WorkflowRunStatus`（`RUNNING/WAITING_CONFIRM/SUCCEEDED/FAILED/REJECTED`）、草稿、文档元信息、工具结果、节点快照、确认结果与状态历史；`form_token` 仅保存在后端内存，响应中不暴露。
+- `GET /api/workflow/{runId}`：返回状态、草稿、工具结果、节点、历史、错误与确认信息；过期确认惰性标记为 `FAILED` + `5005`。
+- `POST /api/workflow/{runId}/confirm`：仅允许 `approve/modify/reject`；`modify` 内容非空且最多 50000 字；重复确认、非法动作、已过期或记录不存在返回 `5005`；确认成功后通过 Dify 服务 API 提交表单，状态转为 `SUCCEEDED` 或 `REJECTED`。
+- `GET /api/workflow/{runId}/export?format=md|docx`：仅 `SUCCEEDED` 允许导出；未确认、已驳回、失败、记录不存在返回 `5006`。Markdown 包含标题、主送、正文、落款、日期、校验摘要与确认结果；DOCX 使用 Apache POI 4.1.2，宋体、标题居中，文件名清洗并设置 UTF-8 `Content-Disposition`。
+- 前端：新增“公文工作流”页、`useWorkflow` 组合式函数与 `workflow.js` API；支持发起/停止、节点进度、工具结果、待确认草稿编辑、通过/修改/驳回、状态历史、Markdown/DOCX 下载与 5 秒轮询。`npm run build` 通过（38 modules）。
+
+### 14.2 验证结果
+
+| 项目 | 方式 | 结果 |
+|---|---|---|
+| 后端聚焦测试 | `WorkflowS8ControllerTest`、`DifyWorkflowClientTest`、`WorkflowControllerTest` | 15/15 通过（暂停、表单提交、修改/驳回、非法动作、过期、未确认导出、未知 run 导出、Markdown/DOCX） |
+| 全量后端测试 | `mvn -q -f backend/pom.xml test` | **98/98 通过（0 failure / 0 error / 0 skipped）** |
+| 前端构建 | `npm run build` | 通过，`dist` 正常生成 |
+| Dify 真实暂停 | `/api/workflow/run/stream`，空草稿 + 安全生产检查任务 | 16.1 s，16 个节点，SSE 以 `done.status=WAITING_CONFIRM` 结束，`runId=f1d6111c-c56e-4f02-b18e-c2ff2503a064` |
+| 状态查询 | `GET /api/workflow/{runId}` | `WAITING_CONFIRM`，草稿 1443 字，`format.passed=true`、`terms.has_hits=false`，不返回 `formToken` |
+| 非法动作 | `POST confirm` body `{"action":"bad"}` | HTTP 200 + `code=5005`，无未处理 500 |
+| 修改后确认 | `POST confirm` body `modify` + 修改正文 | 0.23 s，`status=SUCCEEDED`，`confirmation.action=modify`；Dify `workflow_run` 为 `succeeded`，`human_confirm` 与 `end` 节点均 `succeeded` |
+| 导出 Markdown | `GET export?format=md` | HTTP 200，1566 字，标题/主送/正文/落款/日期/校验摘要/确认结果齐全，含人工追加内容 |
+| 导出 DOCX | `GET export?format=docx` | HTTP 200，`unzip -t` 无错误；`document.xml` 可读出标题、正文、落款与校验摘要，中文未乱码 |
+| 未确认导出 | 第二次暂停后直接导出 | `code=5006`，HTTP 200 |
+| 驳回 | 第二次暂停后 `reject` | `status=REJECTED`，历史保留 `WAITING_CONFIRM → REJECTED`；Dify run `succeeded`；驳回后导出再次返回 `5006` |
+| 重复确认 | 同一 run 再次 `reject` | `code=5005`，不重复提交表单 |
+| 未知 run 导出 | `GET export` 不存在 run | `code=5006`（修复后与导出契约一致） |
+
+### 14.3 问题与修复
+
+- **暂停时草稿为空**：S8 初版仅在收到 `text_chunk/message` 或 `workflow_finished.outputs` 时才补 answer；真实 Workflow 在 `human_input` 暂停前由 `variable-aggregator` 产出最终文本，既没有流式文本也没有 `workflow_finished`，导致 `draft/answer` 为空。已改为解析 `human_input_required.data.form_content`（并回退 `resolved_default_values.content`），暂停时用它补全文本；S8 聚焦测试改为不发送流式增量，覆盖该路径。
+- **未知 run 导出码不一致**：`requireExportable` 原先复用 `requireRun` 返回 `5005`；已改为直接返回 `5006`，并补充接口测试。
+- **Dify 表单 token 格式**：真实 token 为 22 位 URL-safe 字符串，符合后端 `[A-Za-z0-9_-]{1,200}` 校验，无需放宽。
+- **Dify 表单提交**：真实服务 API 接受 `{inputs:{content}, action, user}`，提交后 Dify 异步恢复；后端不会回读恢复流，演示时用 Dify `workflow_runs` 证据说明恢复完成。
+
+### 14.4 限制与后续
+
+- 运行状态仅保存在后端进程内存（`ConcurrentHashMap`），重启清空，不支持多实例；暂停后不要重启后端。
+- 确认成功即返回 `SUCCEEDED/REJECTED`，Dify 若在恢复后执行失败，后端不会反向更新状态；S9 可考虑消费恢复流或落库。
+- 导出使用确认时保存的草稿/正文；DOCX 样式为最小可用版（宋体、标题居中、落款右对齐），不替代正式红头模板。
+- 过期时间由 Dify `human_input` 节点决定（当前 1 天），后端仅在查询/确认时惰性标记；未实现后台定时清理。
+
+### 14.5 验收结论
+
+S8 通过（2026-11-25）。真实链路完成“发起 → 工具校验 → 待确认 → 修改 → 确认 → 导出 Markdown/DOCX”，并验证驳回、未确认导出、非法动作、重复确认与过期/未知 run；无未处理 500。全量后端测试 98/98 通过。

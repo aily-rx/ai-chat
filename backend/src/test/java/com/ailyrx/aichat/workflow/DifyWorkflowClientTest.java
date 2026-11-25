@@ -95,6 +95,51 @@ class DifyWorkflowClientTest {
     }
 
     @Test
+    void parsesHumanInputPauseEvent() throws Exception {
+        long expiresAt = java.time.Instant.now().plusSeconds(3600).getEpochSecond();
+        String sse = String.join("\n",
+                "data: {\"event\":\"workflow_started\",\"workflow_run_id\":\"run-pause\"}",
+                "",
+                "data: {\"event\":\"human_input_required\",\"workflow_run_id\":\"run-pause\","
+                        + "\"data\":{\"form_token\":\"form-token-1\",\"node_id\":\"human_confirm\","
+                        + "\"node_title\":\"人工确认\",\"form_content\":\"草稿如下：确认页草稿\","
+                        + "\"expiration_time\":" + expiresAt + ","
+                        + "\"actions\":[{\"id\":\"approve\",\"title\":\"通过\"},{\"id\":\"reject\",\"title\":\"驳回\"}]}}",
+                "",
+                "data: {\"event\":\"workflow_paused\",\"workflow_run_id\":\"run-pause\","
+                        + "\"data\":{\"status\":\"paused\"}}",
+                "");
+        startServer(200, sse);
+
+        DifyWorkflowResult result = client("test-key").run(
+                Map.of("task", "问题"), event -> { }, delta -> { }, () -> false, "trace");
+
+        assertThat(result.waitingForHumanInput()).isTrue();
+        assertThat(result.runId()).isEqualTo("run-pause");
+        assertThat(result.humanInput().formToken()).isEqualTo("form-token-1");
+        assertThat(result.humanInput().nodeId()).isEqualTo("human_confirm");
+        assertThat(result.humanInput().formContent()).isEqualTo("草稿如下：确认页草稿");
+        assertThat(result.humanInput().actions())
+                .extracting(DifyFormAction::id)
+                .containsExactly("approve", "reject");
+        assertThat(result.humanInput().expiresAt()).isAfter(java.time.Instant.now());
+    }
+
+    @Test
+    void submitsHumanInputFormWithActionAndUser() throws Exception {
+        startServer("/v1/form/human_input/form-token-1", 200, "{}");
+
+        client("test-key").submitHumanInput("form-token-1", "modify", "修改后的正文", "trace-9");
+
+        assertThat(requestBody.get())
+                .contains("\"action\":\"modify\"")
+                .contains("\"content\":\"修改后的正文\"")
+                .contains("\"user\":\"ai-chat-workflow-trace-9\"");
+        assertThat(authorization.get()).isEqualTo("Bearer test-key");
+        assertThat(traceHeader.get()).isEqualTo("trace-9");
+    }
+
+    @Test
     void mapsUpstreamErrorEventWithoutLeakingDetails() throws Exception {
         startServer(200, "data: {\"event\":\"error\",\"message\":\"upstream secret\"}\n");
 
@@ -146,8 +191,12 @@ class DifyWorkflowClientTest {
     }
 
     private void startServer(int status, String responseBody) throws IOException {
+        startServer("/v1/workflows/run", status, responseBody);
+    }
+
+    private void startServer(String path, int status, String responseBody) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/v1/workflows/run", exchange -> {
+        server.createContext(path, exchange -> {
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
             traceHeader.set(exchange.getRequestHeaders().getFirst("X-Trace-Id"));

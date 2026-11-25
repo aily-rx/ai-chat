@@ -3,6 +3,7 @@ package com.ailyrx.aichat.common;
 import com.ailyrx.aichat.config.TraceIdFilter;
 import com.ailyrx.aichat.dify.DifyException;
 import com.ailyrx.aichat.rag.RagValidationException;
+import com.ailyrx.aichat.workflow.WorkflowRunException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -59,6 +60,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.ok()
                 .body(ApiResponse.error(
                         ErrorCodes.DIFY_UNAVAILABLE, exception.getMessage(), traceId));
+    }
+
+    @ExceptionHandler(WorkflowRunException.class)
+    public ResponseEntity<ApiResponse<Void>> handleWorkflowRun(
+            WorkflowRunException exception,
+            HttpServletRequest request) {
+        String traceId = resolveTraceId(request);
+        log.warn("workflow run rejected traceId={} code={} message={}",
+                traceId, exception.getCode(), exception.getMessage());
+        return ResponseEntity.ok()
+                .body(ApiResponse.error(exception.getCode(), exception.getMessage(), traceId));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

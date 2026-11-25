@@ -15,7 +15,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -63,7 +67,7 @@ public class DifyWorkflowClient {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("inputs", inputs);
             payload.put("response_mode", "streaming");
-            payload.put("user", "ai-chat-workflow-" + traceId);
+            payload.put("user", difyUser(traceId));
             body = objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException exception) {
             throw new DifyException("工作流服务暂不可用，请稍后重试", 0, exception);
@@ -99,6 +103,59 @@ public class DifyWorkflowClient {
         }
     }
 
+    /**
+     * 提交人工确认表单。Dify 接受后会自动恢复暂停的 Workflow。
+     */
+    public void submitHumanInput(String formToken, String action, String content, String traceId) {
+        if (properties.apiKey().isBlank() || properties.baseUrl().isBlank()) {
+            throw new DifyException("工作流服务未配置，请联系管理员", 0);
+        }
+        if (formToken == null || !formToken.matches("[A-Za-z0-9_-]{1,200}")) {
+            throw new DifyException("确认信息已失效，请重新发起任务", 0);
+        }
+
+        String body;
+        try {
+            Map<String, Object> inputs = new LinkedHashMap<>();
+            inputs.put("content", content == null ? "" : content);
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("inputs", inputs);
+            payload.put("action", action);
+            payload.put("user", difyUser(traceId));
+            body = objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException exception) {
+            throw new DifyException("确认提交失败，请稍后重试", 0, exception);
+        }
+
+        HttpRequest request = HttpRequest.newBuilder(humanInputUri(formToken))
+                .timeout(Duration.ofSeconds(positiveOrDefault(
+                        properties.requestTimeoutSeconds(), DEFAULT_REQUEST_TIMEOUT_SECONDS)))
+                .header("Authorization", "Bearer " + properties.apiKey())
+                .header("Content-Type", "application/json")
+                .header("X-Trace-Id", traceId == null ? "" : traceId)
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build();
+
+        try {
+            HttpResponse<InputStream> response = httpClient.send(
+                    request, HttpResponse.BodyHandlers.ofInputStream());
+            closeQuietly(response.body());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("dify human input submit failed traceId={} upstreamStatus={}",
+                        traceId, response.statusCode());
+                throw new DifyException("确认已失效或已提交，请刷新后重试", response.statusCode());
+            }
+            log.info("dify human input submitted traceId={} action={}", traceId, action);
+        } catch (DifyException exception) {
+            throw exception;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new DifyException("确认提交已中断，请刷新后重试", 0, exception);
+        } catch (IOException exception) {
+            throw new DifyException("确认提交失败，请稍后重试", 0, exception);
+        }
+    }
+
     private DifyWorkflowResult readStream(
             InputStream input,
             Consumer<WorkflowNodeEvent> onNode,
@@ -108,7 +165,9 @@ public class DifyWorkflowClient {
         String runId = null;
         String status = null;
         Map<String, Object> outputs = Map.of();
+        DifyHumanInput humanInput = null;
         boolean finished = false;
+        boolean paused = false;
         boolean streamedText = false;
         long startedAt = System.nanoTime();
         int nodeCount = 0;
@@ -140,7 +199,9 @@ public class DifyWorkflowClient {
                         onNode.accept(nodeEvent(eventData, "started"));
                     }
                     case "node_finished" -> onNode.accept(nodeEvent(
-                            eventData, normalizeNodeStatus(textOrNull(eventData, "status"))));
+                            eventData,
+                            normalizeNodeStatus(textOrNull(eventData, "status")),
+                            true));
                     case "text_chunk" -> {
                         String text = textOrNull(eventData, "text");
                         if (text != null && !text.isEmpty()) {
@@ -170,6 +231,20 @@ public class DifyWorkflowClient {
                             outputs = objectMapper.convertValue(outputNode, new TypeReference<>() { });
                         }
                     }
+                    case "human_input_required" -> {
+                        humanInput = humanInput(event, eventData);
+                        String inputRunId = firstText(event, eventData, "workflow_run_id", "id");
+                        if (inputRunId != null) {
+                            runId = inputRunId;
+                        }
+                    }
+                    case "workflow_paused" -> {
+                        paused = true;
+                        String pausedRunId = firstText(event, eventData, "workflow_run_id", "id");
+                        if (pausedRunId != null) {
+                            runId = pausedRunId;
+                        }
+                    }
                     case "error" -> {
                         log.warn("dify workflow stream returned error traceId={} status={} code={}",
                                 traceId,
@@ -189,6 +264,14 @@ public class DifyWorkflowClient {
         if (cancelled.getAsBoolean()) {
             throw new DifyException("工作流请求已取消", 0);
         }
+        if (paused || humanInput != null) {
+            if (humanInput == null) {
+                throw new DifyException("工作流未返回确认信息，请稍后重试", 0);
+            }
+            log.info("dify workflow paused traceId={} runId={} node={} nodes={} elapsedMs={}",
+                    traceId, runId, humanInput.nodeId(), nodeCount, elapsedMillis(startedAt));
+            return new DifyWorkflowResult(runId, "paused", outputs, streamedText, humanInput);
+        }
         if (!finished) {
             throw new DifyException("工作流未正常结束，请稍后重试", 0);
         }
@@ -203,10 +286,47 @@ public class DifyWorkflowClient {
     }
 
     private WorkflowNodeEvent nodeEvent(JsonNode data, String status) {
+        return nodeEvent(data, status, false);
+    }
+
+    private WorkflowNodeEvent nodeEvent(JsonNode data, String status, boolean includeOutputs) {
         String nodeId = firstText(data, data, "node_id", "id");
         String name = textOrNull(data, "title");
         String nodeType = textOrNull(data, "node_type");
-        return new WorkflowNodeEvent(nodeId, name, nodeType, status);
+        Map<String, Object> outputs = Map.of();
+        JsonNode outputNode = data.path("outputs");
+        if (includeOutputs && outputNode.isObject()) {
+            Map<String, Object> parsed = objectMapper.convertValue(outputNode, new TypeReference<>() { });
+            outputs = Collections.unmodifiableMap(new LinkedHashMap<>(parsed));
+        }
+        return new WorkflowNodeEvent(nodeId, name, nodeType, status, outputs);
+    }
+
+    private DifyHumanInput humanInput(JsonNode event, JsonNode data) {
+        String formToken = firstText(data, event, "form_token");
+        String nodeId = firstText(data, event, "node_id");
+        String nodeTitle = firstText(data, event, "node_title");
+        String formContent = firstText(data, event, "form_content");
+        if (formContent == null || formContent.isBlank()) {
+            formContent = textOrNull(data.path("resolved_default_values"), "content");
+        }
+        List<DifyFormAction> actions = new ArrayList<>();
+        JsonNode actionNode = data.path("actions");
+        if (actionNode.isArray()) {
+            for (JsonNode item : actionNode) {
+                String id = textOrNull(item, "id");
+                String title = textOrNull(item, "title");
+                if (id != null && !id.isBlank()) {
+                    actions.add(new DifyFormAction(id, title == null ? id : title));
+                }
+            }
+        }
+        long expiration = data.path("expiration_time").asLong(0L);
+        Instant expiresAt = expiration > 0
+                ? Instant.ofEpochSecond(expiration)
+                : Instant.now().plus(Duration.ofHours(1));
+        return new DifyHumanInput(
+                formToken, nodeId, nodeTitle, formContent, List.copyOf(actions), expiresAt);
     }
 
     private String normalizeNodeStatus(String status) {
@@ -238,11 +358,20 @@ public class DifyWorkflowClient {
     }
 
     private URI workflowUri() {
+        return URI.create(normalizedBaseUrl() + "/workflows/run");
+    }
+
+    private URI humanInputUri(String formToken) {
+        return URI.create(normalizedBaseUrl() + "/form/human_input/" + formToken);
+    }
+
+    private String normalizedBaseUrl() {
         String baseUrl = properties.baseUrl();
-        String normalized = baseUrl.endsWith("/")
-                ? baseUrl.substring(0, baseUrl.length() - 1)
-                : baseUrl;
-        return URI.create(normalized + "/workflows/run");
+        return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+    }
+
+    private String difyUser(String traceId) {
+        return "ai-chat-workflow-" + (traceId == null ? "" : traceId);
     }
 
     private static String textOrNull(JsonNode node, String field) {
