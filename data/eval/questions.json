@@ -1,0 +1,155 @@
+[
+  {
+    "id": "q01",
+    "question": "2027年元旦放假几天？",
+    "type": "answerable",
+    "expectedDoc": "国务院办公厅关于2027年部分节假日安排的通知_其他_中国政府网.pdf",
+    "expectedFacts": [
+      "3天"
+    ],
+    "notes": "通知第一条：1月1日至3日放假，共3天。"
+  },
+  {
+    "id": "q02",
+    "question": "2027年春节放假共几天？哪两天需要上班？",
+    "type": "answerable",
+    "expectedDoc": "国务院办公厅关于2027年部分节假日安排的通知_其他_中国政府网.pdf",
+    "expectedFacts": [
+      "9天",
+      "1月31日",
+      "2月14日"
+    ],
+    "notes": "通知第二条。"
+  },
+  {
+    "id": "q03",
+    "question": "“双友好医院”建设要求围绕哪五个方面做到友好？",
+    "type": "answerable",
+    "expectedDoc": "国家卫生健康委办公厅关于加强生育友好医院和儿童友好医院建设与管理的通知_国务院部门文件_中国政府网.pdf",
+    "expectedFacts": [
+      "理念机制友好",
+      "空间环境友好",
+      "全程服务友好",
+      "服务模式友好",
+      "诊疗流程友好"
+    ],
+    "notes": "通知第二部分列出的五个友好。"
+  },
+  {
+    "id": "q04",
+    "question": "儿童友好医院要落实的“五健”促进行动包括哪些健康方面？",
+    "type": "answerable",
+    "expectedDoc": "国家卫生健康委办公厅关于加强生育友好医院和儿童友好医院建设与管理的通知_国务院部门文件_中国政府网.pdf",
+    "expectedFacts": [
+      "体重",
+      "视力",
+      "心理",
+      "骨骼",
+      "口腔"
+    ],
+    "notes": "通知第一部分“五健”。"
+  },
+  {
+    "id": "q05",
+    "question": "事业单位法人证书有效期限届满前多久应当提出换领申请？",
+    "type": "answerable",
+    "expectedDoc": "事业单位登记管理条例_国务院文件_中国政府网.pdf",
+    "expectedFacts": [
+      "90日"
+    ],
+    "notes": "条例第十四条：届满前90日内。"
+  },
+  {
+    "id": "q06",
+    "question": "登记管理机关应当自收到事业单位登记申请材料之日起多少个工作日内作出决定？",
+    "type": "answerable",
+    "expectedDoc": "事业单位登记管理条例_国务院文件_中国政府网.pdf",
+    "expectedFacts": [
+      "15个工作日"
+    ],
+    "notes": "条例第十三条。"
+  },
+  {
+    "id": "q07",
+    "question": "在国务院民政部门登记设立基金会，注册资金最低是多少？",
+    "type": "answerable",
+    "expectedDoc": "基金会管理条例_其他_中国政府网.pdf",
+    "expectedFacts": [
+      "2000万元"
+    ],
+    "notes": "条例第八条。"
+  },
+  {
+    "id": "q08",
+    "question": "基金会理事会的理事人数范围和每届任期分别是多少？",
+    "type": "answerable",
+    "expectedDoc": "基金会管理条例_其他_中国政府网.pdf",
+    "expectedFacts": [
+      "5人至25人",
+      "3年至5年"
+    ],
+    "notes": "条例第二十四条、第二十五条。"
+  },
+  {
+    "id": "q09",
+    "question": "中医药传统知识保护数据库由哪个部门建立？对纳入数据库的知识如何管理？",
+    "type": "answerable",
+    "expectedDoc": "中医药传统知识保护条例_医药管理_中国政府网.pdf",
+    "expectedFacts": [
+      "国务院中医药主管部门",
+      "分类管理"
+    ],
+    "notes": "条例第十二条。"
+  },
+  {
+    "id": "q10",
+    "question": "第六批鼓励研发申报儿童药品清单中符合条件的药品，按程序可纳入哪些目录？",
+    "type": "answerable",
+    "expectedDoc": "关于印发第六批鼓励研发申报儿童药品清单的通知_国务院部门文件_中国政府网.pdf",
+    "expectedFacts": [
+      "国家基本药物目录",
+      "国家基本医疗保险药品目录"
+    ],
+    "notes": "通知正文：纳入国家基本药物目录和国家基本医疗保险药品目录。"
+  },
+  {
+    "id": "q11",
+    "question": "2028年元旦放假安排是几天？",
+    "type": "unanswerable",
+    "expectedDoc": "",
+    "expectedFacts": [],
+    "notes": "资料仅有2027年安排，无2028年内容。"
+  },
+  {
+    "id": "q12",
+    "question": "“双友好医院”建设要求每家医院至少增加多少张产科床位？",
+    "type": "unanswerable",
+    "expectedDoc": "",
+    "expectedFacts": [],
+    "notes": "通知只要求增加单人间、双人间，未给出具体床位数量指标。"
+  },
+  {
+    "id": "q13",
+    "question": "办理事业单位登记需要缴纳多少登记费？",
+    "type": "unanswerable",
+    "expectedDoc": "",
+    "expectedFacts": [],
+    "notes": "条例无登记收费条款。"
+  },
+  {
+    "id": "q14",
+    "question": "中医药传统知识保护数据库的日常维护由哪个具体司局负责？",
+    "type": "unanswerable",
+    "expectedDoc": "",
+    "expectedFacts": [],
+    "notes": "条例只明确国务院中医药主管部门，未细化到具体司局。"
+  },
+  {
+    "id": "q15",
+    "question": "第六批鼓励研发申报儿童药品清单具体包含哪些药品？",
+    "type": "unanswerable",
+    "expectedDoc": "",
+    "expectedFacts": [],
+    "notes": "通知正文仅印发清单，PDF 未附药品明细，语料中没有具体药品名单。"
+  }
+]

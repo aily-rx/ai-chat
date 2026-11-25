@@ -1,6 +1,6 @@
 # ai-chat
 
-「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答和前端引用交互，Agent Workflow 仍在开发中。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互和 15 题 A/B 评测，Agent Workflow 仍在开发中。
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
@@ -10,7 +10,7 @@
 | 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
 | 阶段二交付 tag | `stage2-v1.0`（开发中；需求见根目录 `docs/07-阶段二需求文档.md`） |
 | 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库 |
-| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S5 已完成（S5 前端 RAG 与引用高亮已真实验收），下一步 S6 15 题 A/B 评测与 badcase |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S6 已完成（S6 A/B 各 10/10 命中、5/5 拒答、引用完整 10/10，详见 `docs/stage2-eval-report.md`），下一步 S7 Workflow |
 
 ## 一、功能与请求链路
 
@@ -35,7 +35,7 @@ DeepSeek API
 - 健康检查、统一响应、traceId、全局异常处理、CORS；
 - Dify 独立交付物：Chatbot「公文问答助手」。
 
-阶段二已实现（截至 S5）：
+阶段二已实现（截至 S6）：
 
 - 知识库文档上传与状态列表：`GET/POST /api/kb/documents`，前端“知识库”页支持类型/大小校验、索引轮询与错误展示；
 - 20 份真实文本 PDF 已分别入 A/B 两个数据集，Dify 状态均为 `completed`；
@@ -471,14 +471,15 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 - MySQL、会话表、消息表、历史会话；
 - 私有 vLLM、整体一键部署、移动端适配。
 
-阶段二截至 S5 尚未完成：
+阶段二 S6 已完成（2026-11-25）：A/B 各 10/10 命中、5/5 正确拒答、非拒答引用完整 10/10；引用摘录上限由 200 调整为 500，使引用卡片能够核验答案事实。默认库建议继续使用 B；A/B badcase 与限制见 `docs/stage2-eval-report.md`。
 
-- S6 15 题 A/B 评测与至少 3 条 badcase 归因；
+阶段二截至 S6 尚未完成：
+
 - S7 Dify Workflow / Agent、工具与兜底分支；
 - S8 人工确认与 Markdown/DOCX 导出；
 - S9/S10 文档、DSL、回归与 `stage2-v1.0` 标签。
 
-A 策略仍存在少量 5 字碎段，S6 评测前需评估是否接受，并在报告中如实记录。
+A 策略仍存在少量 5 字碎段，S6 已评估并记录为 badcase（A 库切分过细），后续可合并短段或重导后复测；评测报告未隐去该偏差。
 
 ## 十一、提交规范
 

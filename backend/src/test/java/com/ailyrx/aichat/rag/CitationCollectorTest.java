@@ -42,11 +42,11 @@ class CitationCollectorTest {
     }
 
     @Test
-    void truncatesExcerptToTwoHundredCodePoints() {
+    void truncatesExcerptToFiveHundredCodePoints() {
         String excerpt = CitationCollector.truncate(
-                "你".repeat(205), CitationCollector.MAX_EXCERPT_LENGTH);
+                "你".repeat(505), CitationCollector.MAX_EXCERPT_LENGTH);
 
-        assertThat(excerpt).isEqualTo("你".repeat(200));
+        assertThat(excerpt).isEqualTo("你".repeat(500));
     }
 
     @Test

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CitationCollector {
 
-    static final int MAX_EXCERPT_LENGTH = 200;
+    static final int MAX_EXCERPT_LENGTH = 500;
 
     public List<CitationItem> collect(List<DifyRetrieverResource> resources) {
         if (resources == null || resources.isEmpty()) {
