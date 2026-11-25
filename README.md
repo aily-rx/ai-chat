@@ -1,6 +1,6 @@
 # ai-chat
 
-「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互和 15 题 A/B 评测，Agent Workflow 仍在开发中。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互、15 题 A/B 评测，以及带格式/术语校验与工具兜底的 Dify Workflow；下一步人工确认与导出。
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
@@ -9,8 +9,8 @@
 | GitHub | https://github.com/aily-rx/ai-chat |
 | 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
 | 阶段二交付 tag | `stage2-v1.0`（开发中；需求见根目录 `docs/07-阶段二需求文档.md`） |
-| 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库 |
-| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S6 已完成（S6 A/B 各 10/10 命中、5/5 拒答、引用完整 10/10，详见 `docs/stage2-eval-report.md`），下一步 S7 Workflow |
+| 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库；S7 Workflow：Spring Boot → Dify Workflow → 后端格式/术语工具 |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S7 已完成（S7 Workflow 双路径、格式/术语分支与工具超时兜底已验收），下一步 S8 人工确认与导出 |
 
 ## 一、功能与请求链路
 
@@ -35,13 +35,21 @@ DeepSeek API
 - 健康检查、统一响应、traceId、全局异常处理、CORS；
 - Dify 独立交付物：Chatbot「公文问答助手」。
 
-阶段二已实现（截至 S6）：
+阶段二 RAG 主链路（S2–S6）：
 
 - 知识库文档上传与状态列表：`GET/POST /api/kb/documents`，前端“知识库”页支持类型/大小校验、索引轮询与错误展示；
 - 20 份真实文本 PDF 已分别入 A/B 两个数据集，Dify 状态均为 `completed`；
 - 后端 RAG 流式问答：`POST /api/rag/chat/stream`，按 `datasetId` 路由到 A/B Chatflow，SSE 顺序为 `message* → citations → done`；
 - 引用含文档名、段落序号、摘录和分数，`page=null`；无引用不出成功终态；无答案固定拒答并返回空引用；
 - 前端“知识库问答”页：A/B 知识库切换、逐字流式输出、发送/停止、引用编号与卡片；点击编号滚动到对应卡片并高亮 2 秒；拒答与错误态分开展示，不伪造引用。
+
+阶段二已实现（S7）：
+
+- 格式检查工具：`POST /api/format/check`，检查标题、文种、主送机关、落款、日期、正文缩进与序号连续性；只报告问题，不修改原文；
+- 规范用语检查工具：`POST /api/terms/check`，内置错别字/规范用词词表并支持自定义覆盖，返回命中位置与上下文；
+- Dify Workflow「公文起草与校验-Workflow」：开始 → 草稿判断/知识检索 → LLM 生成 → 格式校验 → 条件分支 → 术语检查 → 兜底 → 输出；
+- 后端 Workflow 代理：`POST /api/workflow/run/stream`，SSE 顺序为 `node* → message* → done`；工具失败进入 Dify fail-branch，状态 `partial-succeeded` 仍正常转发兜底文本；
+- DSL 与技能文档：`dify/dsl/`、`docs/skills/official-doc-format.md`。
 
 ## 二、技术栈与版本要求
 
@@ -52,8 +60,8 @@ DeepSeek API
 | 构建 | Maven 3.9+ |
 | Node.js | **`^20.19.0` 或 `>=22.12.0`**（Vite 8 要求，推荐 22 LTS） |
 | 包管理 | npm |
-| 模型 API | 阶段一：DeepSeek OpenAI 兼容接口，默认 `deepseek-chat`；阶段二 RAG：Dify Chatflow 内配置 `deepseek-v4-flash` |
-| Dify | 1.19.0（Docker Compose；阶段二 RAG 主链路依赖） |
+| 模型 API | 阶段一：DeepSeek OpenAI 兼容接口，默认 `deepseek-chat`；阶段二 RAG/Workflow：Dify 内配置 `deepseek-v4-flash` |
+| Dify | 1.19.0（Docker Compose；阶段二 RAG 与 Workflow 主链路依赖） |
 | Git | 任意近期版本 |
 
 检查环境：
@@ -300,7 +308,7 @@ docker compose up -d
 docker compose ps
 ```
 
-等待 `docker-api-1` 变为 `healthy` 后，打开 **http://localhost/**。阶段一 Chatbot「公文问答助手」是独立交付物；阶段二“知识库问答”页依赖 Dify 中的 `RAG对话`（B 库）与 `RAG对话-A`（A 库）两个 Chatflow 应用以及对应数据集。阶段一“流式对话”仍由 Vue3 → Spring Boot → DeepSeek 完成，不经过 Dify。
+等待 `docker-api-1` 变为 `healthy` 后，打开 **http://localhost/**。阶段一 Chatbot「公文问答助手」是独立交付物；阶段二“知识库问答”页依赖 Dify 中的 `RAG对话`（B 库）与 `RAG对话-A`（A 库）两个 Chatflow 应用以及对应数据集。S7 Workflow 还依赖 `公文起草与校验-Workflow`（应用 ID `39259284-937e-41de-b975-a093f8da7a14`）及后端 8080 端口。阶段一“流式对话”仍由 Vue3 → Spring Boot → DeepSeek 完成，不经过 Dify。
 
 > 换一台机器演示时，只拉本仓库不会带过去 Dify、应用和数据集；需要提前部署 Dify 并按文档导入 DSL 与资料。
 
@@ -326,6 +334,9 @@ docker compose down
 | `GET` | `/api/kb/documents` | 知识库文档列表 |
 | `POST` | `/api/kb/documents` | 上传知识库文档（multipart，pdf/docx/txt/md，≤20MB） |
 | `POST` | `/api/rag/chat/stream` | RAG 流式问答，SSE 返回 `message/citations/done/error` |
+| `POST` | `/api/format/check` | 公文格式检查，返回问题列表，不修改原文 |
+| `POST` | `/api/terms/check` | 规范用语/错别字检查，返回命中位置与建议 |
+| `POST` | `/api/workflow/run/stream` | 公文 Workflow 流式代理，SSE 返回 `node/message/done/error` |
 | `POST` | `/api/chat` | 阶段一未实现（可选调试接口） |
 
 ### 7.1 健康检查
@@ -422,6 +433,30 @@ data: {"runId":"...","traceId":"a1b2c3d4","elapsedMs":2656}
 
 完整契约：阶段一见 [接口文档](docs/api.md)；阶段二 RAG 见根目录 `docs/07-阶段二需求文档.md` §6.2，实现与验收记录见 [阶段二技术验证](docs/stage2-tech-validation.md)。
 
+### 7.5 公文 Workflow 与校验工具
+
+```bash
+curl -sN -X POST http://localhost:8080/api/workflow/run/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"input":"起草一份安全生产检查通知","draft":"　　各部门要立即开展自查。"}'
+```
+
+- 请求字段：`input`（必填，≤2000 字）、`draft`（可选，≤20000 字）、`documentIds`（可选，≤20 项）；`documentIds` 当前仅做契约预留，不参与 Dify 入参。
+- SSE 顺序：`node*`（节点开始/结束）→ `message*`（最终文本一次性输出，Dify 未透传增量）→ `done`（`runId/status/traceId`）；失败时发送 `error`（5004）且不发送 `done`。
+- 工具失败由 Dify fail-branch 兜底，工作流状态为 `partial-succeeded`，后端仍发送 `message` 与 `done`。
+- `draft` 为空时执行知识检索与 LLM 生成；非空时直接校验草稿。
+- 格式/术语工具契约与规则见 [公文格式与用语校验技能](docs/skills/official-doc-format.md)；DSL 与导入说明见 `dify/dsl/README.md`。
+
+```bash
+curl -s -X POST http://localhost:8080/api/format/check \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"关于开展检查的通知","docType":"通知","recipient":"各部门：","signature":"XX办公室","date":"2026-11-25","body":"　　各部门要立即开展自查。"}'
+
+curl -s -X POST http://localhost:8080/api/terms/check \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"同志们不能做为旁观者。"}'
+```
+
 ## 八、验收演示步骤（10 分钟硬性检查）
 
 | 时间 | 动作 | 预期证据 |
@@ -473,9 +508,10 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 
 阶段二 S6 已完成（2026-11-25）：A/B 各 10/10 命中、5/5 正确拒答、非拒答引用完整 10/10；引用摘录上限由 200 调整为 500，使引用卡片能够核验答案事实。默认库建议继续使用 B；A/B badcase 与限制见 `docs/stage2-eval-report.md`。
 
-阶段二截至 S6 尚未完成：
+阶段二 S7 已完成（2026-11-25）：格式/术语检查接口、Dify Workflow、后端 SSE 代理与工具失败兜底均已通过真实链路验收；发布版本 `s7-v1.0-final`，DSL 见 `dify/dsl/official-doc-workflow-s7.yml`。
 
-- S7 Dify Workflow / Agent、工具与兜底分支；
+阶段二截至 S7 尚未完成：
+
 - S8 人工确认与 Markdown/DOCX 导出；
 - S9/S10 文档、DSL、回归与 `stage2-v1.0` 标签。
 
@@ -508,6 +544,10 @@ feat(chat): 增加 SSE 流式对话接口
 - [前端原型设计](docs/frontend-prototype.md)
 - [联调与性能测试记录](docs/streaming-test.md)
 - [Dify 部署记录](docs/dify-setup.md)
+- [阶段二技术验证记录](docs/stage2-tech-validation.md)
+- [阶段二评测报告](docs/stage2-eval-report.md)
+- [公文格式与用语校验技能](docs/skills/official-doc-format.md)
+- [S7 Workflow DSL 与导入说明](dify/dsl/README.md)
 - [PR 与评审记录](docs/pr-log.md)
 - [阶段一汇报单](docs/report-stage1.md)
 - [演示脚本](docs/demo-script.md)

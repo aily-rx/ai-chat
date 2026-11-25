@@ -1,7 +1,7 @@
-# 阶段二技术验证记录（S0–S6）
+# 阶段二技术验证记录（S0–S7）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）
-> 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S6；`docs/07-阶段二需求文档.md` v1.0
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）；S7 Dify Workflow、格式/术语工具、条件分支和工具超时兜底已完成并通过双路径验收（2026-11-25）
+> 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S7；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
 ## 1. 环境基线
@@ -313,3 +313,57 @@ S5 通过（2026-11-25）。前端 RAG 问答、引用卡片与点击定位高�
 - 15 题（10 有答案 + 5 无答案）在 A/B 两库各跑两轮；最终 A/B 均 10/10 命中、5/5 正确拒答、非拒答引用完整 10/10。
 - badcase：引用摘录 200 字截断导致事实不可核验（已修复为 500 字）；低相关文档混入引用、A 库切分过细/半句开头（已记录，待后续单变量优化）。
 - 完整指标、badcase、限制与证据索引见 `docs/stage2-eval-report.md`；全量后端测试 69/69 通过。
+
+## 13. S7 Dify Workflow 与校验工具（2026-11-25）
+
+### 13.1 已实现
+
+- 格式检查：`POST /api/format/check`，校验标题、文种、主送机关、落款、日期、正文缩进与三级序号连续性；返回 `passed/issues`，`ERROR` 决定是否通过，`WARN` 只提示；最多返回 50 条正文问题；不修改原文。
+- 用语检查：`POST /api/terms/check`，内置 12 个错别字/规范用语词条，支持 `app.terms.overrides` 覆盖；返回 `term/suggestion/category/position/line/column/context`，`position` 从 0 开始，行列从 1 开始。
+- Dify Workflow「公文起草与校验-Workflow」（应用 ID `39259284-937e-41de-b975-a093f8da7a14`）：
+  - 开始 → 草稿是否为空 → 知识检索/LLM 生成或直接使用草稿 → 草稿合并；
+  - Code 节点构造 JSON → HTTP 格式校验 → 条件分支；
+  - 格式通过后执行术语校验 → 条件分支；
+  - 格式不通过输出问题列表与原草稿；术语命中输出命中位置与原草稿；全部通过输出草稿；
+  - 两个 HTTP 节点均配置 `fail-branch`，失败进入独立兜底节点，保留草稿并提示人工复核。
+- 后端代理：`POST /api/workflow/run/stream`，SSE 为 `node* → message* → done`；失败发送 `error`（5004）且不发送 `done`；接受 Dify 的 `succeeded` 与 `partial-succeeded`；请求携带 `X-Trace-Id`，`user=ai-chat-workflow-<traceId>`；日志不记录正文与问题明细。
+- 发布版本：`s7-v1.0-final`（发布记录 ID `b6eae619-b334-4fe3-af11-b15863e34f60`）；DSL 见 `dify/dsl/official-doc-workflow-s7.yml`，已用 `include_secret=false` 导出，并把数据集 ID 替换为占位符。
+- 技能文档：`docs/skills/official-doc-format.md`，与工具接口、规则、分支和错误处理保持一致。
+
+### 13.2 验证结果
+
+| 项目 | 方式 | 结果 |
+|---|---|---|
+| 工具单测 | `FormatCheckerTest`、`TermsCheckerTest` | 9/9 通过（正常、字段全空、非法日期、序号不连续、缩进、覆盖词条、位置） |
+| 接口单测 | `CheckControllerTest` | 5/5 通过（不改原文、空对象 6 个问题、50001 字返回 400/4000） |
+| Workflow 单测 | `DifyWorkflowClientTest`、`WorkflowControllerTest` | 10/10 通过（节点/文本/结果、partial-succeeded、错误不泄漏、HTTP 503、缺 Key、缺 workflow_finished、SSE 终态） |
+| 全量后端测试 | `mvn -q test` | 93/93 通过（0 failure / 0 error / 0 skipped） |
+| Dify 控制台生成 | 空草稿 + 安全生产检查任务 | 930 字，15 个业务节点全部成功；知识检索 → LLM → 格式/术语校验 → 通过输出 |
+| 格式失败分支 | 日期 `2026-02-30` | 输出“格式校验未通过：date: 日期格式不合法或日期不存在”+ 原草稿；不进入术语检查 |
+| 术语命中分支 | 草稿含“做为” | 输出“做为→作为（第1行第8列）”+ 原草稿 |
+| 格式工具超时 | HTTP 节点临时指向不可达端口 9 | 进入“格式工具兜底”，状态 `partial-succeeded`，输出保留草稿，工作流不中断 |
+| 术语工具超时 | 同上，仅术语工具不可达 | 进入“术语工具兜底”，状态 `partial-succeeded`，输出保留草稿 |
+| 后端干净路径 | `/api/workflow/run/stream` + 合规草稿 | `done.status=succeeded`，返回“格式与术语检查均通过”+ 草稿，含 `runId/traceId` |
+| 后端格式失败 | input 含换行导致标题非法 | `done.status=succeeded`，返回格式问题与原草稿 |
+| 后端术语命中 | 草稿含“做为” | `done.status=succeeded`，返回命中位置与原草稿 |
+| 后端工具超时 | 临时发布不可达工具版本 | `done.status=partial-succeeded`，返回“格式校验工具暂时不可用”+ 原草稿；无 `error`，569 ms |
+| 真实生成路径 | 空草稿 + 安全生产任务 | 9.5 s，节点含知识检索/草稿生成，最终通过格式与术语检查，输出 930 字 |
+| traceId | 单测 + 后端 SSE | 请求头 `X-Trace-Id` 与 `done.traceId` 一致；Dify `user` 带同一 traceId |
+
+### 13.3 问题与修复
+
+- Dify Code 节点经控制台同步后会把源码字符串中的 `\n` 转成真实换行，导致语法错误；改用 `chr(10)` 拼接换行，避免在代码源码中写转义换行。
+- Dify 工具失败后的工作流状态是 `partial-succeeded`，后端原先只接受 `succeeded` 会误报 5004；已改为接受 `partial-succeeded`，并增加单测。
+- Dify HTTP Request 节点默认经 SSRF 代理拒绝私网地址；在 Dify 部署中增加 `SSRF_PROXY_ALLOW_PRIVATE_DOMAINS=host.docker.internal` 并重启 `ssrf_proxy`，只放行该域名。
+- 真实 Dify 调用需要服务 API Key；Key 只写入被 gitignore 的 `.env`（`DIFY_WORKFLOW_API_KEY`），未提交、未打印。
+
+### 13.4 限制与后续
+
+- 格式规则是静态启发式，只覆盖结构、缩进、序号和字段必填；不判断文种适用性、语义完整性和政策依据真实性。
+- `WARN` 不阻止输出；S8 人工确认可把 `WARN`/术语命中作为确认项。
+- `documentIds` 已进入后端请求契约，但 S7 Workflow 未使用；知识检索固定使用 B 库，后续 S8/S9 再决定是否按文档范围检索。
+- 生成草稿中的“资料不足，需人工补充”属于模型依据不足时的显式提示，不是格式错误；S7 不自动改写。
+
+### 13.5 验收结论
+
+S7 通过（2026-11-25）。格式/术语工具、Dify Workflow、后端 SSE 代理、Dify 控制台与后端两条运行路径均跑通；格式不通过、术语命中、格式/术语工具超时四种情况均按预期分流，工具失败不中断工作流；全量后端测试 93/93 通过。

@@ -95,3 +95,37 @@ Docker Desktop、WSL 与 Dify 重启后复核：15 个容器运行，`docker-api
   ```
   引擎恢复后再执行 `docker compose up -d`。
 - 若 `/console/api/setup` 返回 502，通常是 API 容器还在启动，等待 `docker-api-1` 变为 `healthy` 后重试。
+
+## 阶段二 Workflow（S7，2026-11-25）
+
+| 项目 | 值 |
+|---|---|
+| Workflow 应用 | 公文起草与校验-Workflow |
+| App ID | `39259284-937e-41de-b975-a093f8da7a14` |
+| 草稿工作流 ID | `1c83f0f4-7ce1-46f3-91ad-6a33221179ec` |
+| 验收发布版本 | `s7-v1.0-final`（`b6eae619-b334-4fe3-af11-b15863e34f60`） |
+| 依赖插件 | `langgenius/deepseek/deepseek`、`langgenius/siliconflow/siliconflow` |
+| 依赖模型 | `deepseek-v4-flash`、Embedding `Pro/BAAI/bge-m3` |
+| 工具后端 | `http://host.docker.internal:8080/api/format/check`、`/api/terms/check` |
+| 知识库 | B 库；DSL 中数据集 ID 已替换为 `REPLACE_WITH_DATASET_B_ID` |
+
+DSL、节点结构与导入步骤见 `dify/dsl/README.md`。应用服务 API Key 只在后端被 gitignore 的 `.env` 中配置为 `DIFY_WORKFLOW_API_KEY`，不写入本文件。
+
+### SSRF 代理放行
+
+Dify HTTP Request 节点默认经 `ssrf_proxy` 拒绝私网目标，导致无法访问本机后端。在 Dify 部署中添加：
+
+```env
+# E:\Dify\dify\docker\envs\infrastructure\ssrf-proxy.env
+SSRF_PROXY_ALLOW_PRIVATE_DOMAINS=host.docker.internal
+```
+
+然后只重建代理容器：
+
+```powershell
+cd E:\Dify\dify\docker
+docker compose up -d --no-deps ssrf_proxy
+docker exec docker-ssrf_proxy-1 cat /etc/squid/dify_allow_private.conf
+```
+
+预期出现 `dstdomain host.docker.internal` 与 `http_access allow client_localnet dify_allowed_private_domains`。该配置只放行 `host.docker.internal`，未放开全部私网。

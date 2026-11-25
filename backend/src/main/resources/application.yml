@@ -39,6 +39,13 @@ app:
     app-b-key: ${DIFY_APP_API_KEY:}
     connect-timeout-seconds: ${DIFY_CONNECT_TIMEOUT_SECONDS:10}
     request-timeout-seconds: ${DIFY_CHAT_TIMEOUT_SECONDS:120}
+  workflow:
+    base-url: ${DIFY_BASE_URL:http://localhost/v1}
+    api-key: ${DIFY_WORKFLOW_API_KEY:}
+    connect-timeout-seconds: ${DIFY_CONNECT_TIMEOUT_SECONDS:10}
+    request-timeout-seconds: ${DIFY_WORKFLOW_TIMEOUT_SECONDS:120}
+  terms:
+    overrides: {}
 
 logging:
   pattern:
