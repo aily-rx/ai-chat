@@ -1,6 +1,6 @@
 # 阶段二技术验证记录（S0–S2）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 Dify 应用预检通过（2026-11-25，后端 S4 尚未实现）
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 Dify 应用预检通过，A/B 双应用已就绪（2026-11-25，后端 S4 尚未实现）
 > 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S2；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
@@ -140,6 +140,26 @@ S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 hum
 
 - 模型按用户确认使用 Dify 中的 `deepseek-v4` 系列；应用界面实际显示 `deepseek-v4-flash`。阶段一后端的 `deepseek-chat` 仅用于旧接口，不用于本阶段 RAG 评测；评测报告需记录 Dify 实际模型名。
 - S4 映射要求：只把 `event: message` 的增量映射为 SSE `message`；忽略 `reasoning_chunk`；拒答时不生成 `citations`；`citations` 必须在 `done` 前发送。
+
+### 8.1 A/B 双应用准备（2026-11-25）
+
+单个 Chatflow 的知识检索节点不能按请求动态切换数据集，多选 A/B 会同时检索两库并混排结果，无法做严格 A/B 对比。因此采用两个 Dify 应用：
+
+| 项目 | B 应用 | A 应用 |
+|---|---|---|
+| 应用名 | `RAG对话` | `RAG对话-A` |
+| 检索数据集 | B 库 `9bff9430...` | A 库 `14ebeb37...` |
+| 生成模型 | `deepseek-v4-flash` | `deepseek-v4-flash` |
+| Direct Reply | 引用 `llm.text` | 引用 `llm.text` |
+| 服务 API Key | 现有 `DIFY_APP_API_KEY` | 本地 `.env` 的 `DIFY_APP_API_KEY_A`（不记录） |
+
+验证结果：
+
+- 两个应用的服务 Key 调 `GET /v1/parameters` 均返回 200。
+- A 应用流式问答 HTTP 200；事件包含 `message`、`message_end`、`workflow_started/node_finished`，无 `error`。
+- 用“中医药传统知识保护条例什么时候施行？”验证，回答包含 2027-01-01；`message_end.metadata.retriever_resources` 返回 4 条，`dataset_id` 全部为 A 库，首条 `segment_position=1`、score 约 0.7844。
+- 回答无 `<think>`；仍有 `reasoning_chunk`，S4 后端不得转发。
+- 结论：A/B 双应用路由可行；S4 按 `datasetId` 映射到对应应用 Key。
 
 ## 9. S3 前端上传/列表（2026-11-25）
 
