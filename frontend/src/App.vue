@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import ChatHeader from './components/ChatHeader.vue'
 import ChatView from './views/ChatView.vue'
 import ExtractView from './views/ExtractView.vue'
+import KnowledgeView from './views/KnowledgeView.vue'
 import { checkHealth } from './api/health'
 import { USE_MOCK } from './api/config'
 
@@ -38,6 +39,7 @@ onMounted(refreshHealth)
 
     <main class="app-main">
       <ChatView v-show="activeTab === 'chat'" />
+      <KnowledgeView v-if="activeTab === 'kb'" />
       <ExtractView v-show="activeTab === 'extract'" />
     </main>
   </div>
