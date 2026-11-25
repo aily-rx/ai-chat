@@ -1,7 +1,7 @@
-# 阶段二技术验证记录（S0–S1）
+# 阶段二技术验证记录（S0–S2）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）
-> 关联：`docs/08-阶段二执行计划.md` v1.1 S0；`docs/07-阶段二需求文档.md` v1.0
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与后端验收已完成，20+ 真实资料批量入库待补（2026-11-25）
+> 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S2；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
 ## 1. 环境基线
@@ -26,7 +26,7 @@
 | 宿主机 → Dify Service API | `GET http://localhost/v1/parameters` | 401（未带应用 Key，符合预期，证明可达） |
 | Dify 容器 → 外网 | 容器内 TCP 443 到 api.siliconflow.cn / api.deepseek.com | 连接成功 |
 
-## 3. 进展与待验证（S0 进行中）
+## 3. S0 验证结果（已完成）
 
 - [x] Dify 控制台配置 SiliconFlow Provider 与 Embedding 模型（实际选中 `Pro/BAAI/bge-m3`，1024 维）
 - [x] 创建知识库 API Key（仅存后端 `.env`，本文不记录）
@@ -77,7 +77,7 @@
 
 ## 5. 结论
 
-S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 human_input（Web App 暂停-提交-恢复）均验证通过。S1 后端纵切已于 2026-11-24 完成，见第 6 节；可以进入 S2。
+S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 human_input（Web App 暂停-提交-恢复）均验证通过。S1 后端纵切已于 2026-11-24 完成，见第 6 节。S2 适配层、状态轮询与 A/B 导入脚本已于 2026-11-25 实现并完成真实后端验收，见第 7 节；但当前只有 3 份真实资料，未达到 20+ 份的 S2 数据验收条件，S2 不能标记为全部完成。
 
 ## 6. S1 完成记录（2026-11-24）
 
@@ -88,3 +88,37 @@ S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 hum
 - 测试：`DocumentControllerTest` 7/7；后端全套 41/41，阶段一测试无回归。
 - 真实 `curl` 验收：合法 `notice.txt` → 200 + `PENDING`；`notice.exe` → 400 + `4000`；21MB PDF → 400 + `4000`，未出现未处理 500。
 - 限制：S1 尚未调用 Dify，状态流转与批量入库在 S2 实施。
+
+## 7. S2 实现与验收记录（2026-11-25）
+
+### 7.1 已实现
+
+- `dify/` 适配层：`DifyProperties`、`DifyClient`、请求/响应 DTO、`DifyException`；Base URL、API Key、A/B 数据集 ID 全部通过后端 `.env` 注入，前端不持有 Dify Key。
+- 上传状态机：保存 `PENDING` 元数据 → 调用 Dify `create-by-file` → 保存 `INDEXING` 与 `difyDatasetId/difyDocumentId` → `DifyIndexingPoller` 异步轮询 → `READY`（写 `chunkCount`）或 `FAILED`（写脱敏错误）。
+- 轮询限制：默认间隔 2 s、最长 180 s；可取消，后端关闭时停止线程。查询失败保持 `INDEXING` 并重试，超时转 `FAILED`。
+- 错误契约：Dify 不可用/超时返回 HTTP 200 + `code=5002`；Dify 上游错误详情和堆栈只进后端日志，不返回前端。Dify Key、上游响应正文不出现在接口响应中。
+- A/B 导入脚本 `scripts/dify/import_datasets.py`：复用/创建 `ai-chat-kb-a`、`ai-chat-kb-b`，同一批资料分别上传，等待索引，导出 `data/eval/chunks-{a,b}.json`，生成 `docs/dataset-manifest.md`；脚本不打印 Key。真实文件与导出目录仍被 gitignore。
+- 默认数据库仍为 B：`DIFY_DEFAULT_DATASET_ID` 指向 `ai-chat-kb-b`。
+
+### 7.2 真实验收
+
+| 项目 | 方式 | 结果 |
+|---|---|---|
+| 后端全量测试 | `mvn test` | 52/52 通过；阶段一用例无回归 |
+| 上传真实 PDF | UTF-8 multipart 上传《基金会管理条例》 | HTTP 200 + `X-Trace-Id`；`fileName` 中文正常；状态 `INDEXING`；返回 Dify 文档 ID |
+| 索引完成 | 轮询 `GET /api/kb/documents` | `READY`，`chunkCount=27`，`errorMessage=null`，`difyDatasetId` 为 B 库 |
+| Java → Dify 中文名 | 查询 Dify 文档详情 | Dify 存储的文档名与本地文件名一致 |
+| Dify 不可用 | 临时使用不存在的 dataset ID 上传 | HTTP 200 + `code=5002`、安全提示；列表记录 `FAILED`，无上游堆栈/Key |
+| A/B 导入 | 对 3 份真实 PDF 跑导入脚本 | A/B 均为 `READY`；A 段数 14/3/56，B 段数 7/2/27；导出切分记录与清单 |
+
+- 验收使用 Python `requests` 的 UTF-8 multipart 客户端；Git Bash/curl 在本机对中文文件名存在终端编码问题（服务端收到的字节已损坏），不作为后端缺陷判定。浏览器按 UTF-8 multipart 上传，Java → Dify 链路已用中文文件名验证正常。
+- 上传响应状态为 `INDEXING`，`PENDING` 是短暂内部状态，不再作为 API 返回状态；这与 S1 的 `PENDING` 验收口径不同，已在此登记。
+- A/B 真实数据集：`ai-chat-kb-a` = `14ebeb37-be49-4a4c-a1bf-9731ab2be8f0`；`ai-chat-kb-b` = `9bff9430-6853-4886-84a5-468fd6030352`。ID 不是密钥，可写入清单；Key 未记录。
+
+### 7.3 未完成项与风险
+
+- **资料数量未达标**：`data/docs/` 当前只有 3 份真实文本 PDF，目标是 20–30 份；S2 的“20+ 份文档在 A/B 两库均为 READY”尚未满足。清单已如实记录 3/20+。
+- **来源 URL 未补录**：清单中的“来源”仍为“待补录来源”，需在资料齐备后补充；不得编造。
+- **策略 A 碎段风险**：Dify `max_tokens` 是 token 上限，不是字符数；A 在 500 token 下出现标题行孤立（《基金会管理条例》最短 5 字，另有 45/65 字碎段）。A 的整体字符范围 5–500，B 为 346–699。S6 评测前需评估是否接受该偏差，或调整 A 参数/后处理；不得在评测报告中隐去。
+- **Dify 应用 Key 未就绪**：当前只有知识库 dataset Key；S4 的 RAG 流式对话需要 Dify 应用 API Key，尚未配置。
+- 文档元数据仍为内存存储，后端重启清空，属于计划内已知限制。

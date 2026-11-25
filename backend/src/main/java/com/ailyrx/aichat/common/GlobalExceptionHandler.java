@@ -1,6 +1,7 @@
 package com.ailyrx.aichat.common;
 
 import com.ailyrx.aichat.config.TraceIdFilter;
+import com.ailyrx.aichat.dify.DifyException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -35,6 +36,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnreadableBody(HttpServletRequest request) {
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(ErrorCodes.INVALID_PARAMETER, "请求体格式错误", resolveTraceId(request)));
+    }
+
+    @ExceptionHandler(DifyException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDifyUnavailable(
+            DifyException exception,
+            HttpServletRequest request) {
+        String traceId = resolveTraceId(request);
+        log.warn("dify unavailable traceId={} upstreamStatus={} message={}",
+                traceId, exception.upstreamStatus(), exception.getMessage());
+        return ResponseEntity.ok()
+                .body(ApiResponse.error(
+                        ErrorCodes.DIFY_UNAVAILABLE, exception.getMessage(), traceId));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

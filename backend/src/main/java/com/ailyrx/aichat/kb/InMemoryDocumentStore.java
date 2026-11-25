@@ -3,6 +3,7 @@ package com.ailyrx.aichat.kb;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,12 @@ public class InMemoryDocumentStore implements DocumentStore {
     public DocumentRecord save(DocumentRecord document) {
         documents.put(document.id(), new Entry(document, sequence.incrementAndGet()));
         return document;
+    }
+
+    @Override
+    public Optional<DocumentRecord> findById(String id) {
+        Entry entry = documents.get(id);
+        return entry == null ? Optional.empty() : Optional.of(entry.document());
     }
 
     @Override

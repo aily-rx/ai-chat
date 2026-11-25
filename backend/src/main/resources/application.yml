@@ -20,6 +20,19 @@ app:
     model: ${LLM_MODEL:deepseek-chat}
     timeout-seconds: ${LLM_TIMEOUT_SECONDS:60}
     extract-temperature: ${LLM_EXTRACT_TEMPERATURE:0.0}
+  dify:
+    base-url: ${DIFY_BASE_URL:http://localhost/v1}
+    api-key: ${DIFY_DATASET_API_KEY:}
+    default-dataset-id: ${DIFY_DEFAULT_DATASET_ID:}
+    dataset-a-id: ${DIFY_DATASET_A_ID:}
+    dataset-b-id: ${DIFY_DATASET_B_ID:}
+    poll-interval-ms: ${DIFY_POLL_INTERVAL_MS:2000}
+    poll-timeout-ms: ${DIFY_POLL_TIMEOUT_MS:180000}
+    connect-timeout-seconds: ${DIFY_CONNECT_TIMEOUT_SECONDS:10}
+    request-timeout-seconds: ${DIFY_REQUEST_TIMEOUT_SECONDS:60}
+    separator: "${DIFY_SEPARATOR:\n\n}"
+    max-tokens: ${DIFY_MAX_TOKENS:800}
+    chunk-overlap: ${DIFY_CHUNK_OVERLAP:100}
 
 logging:
   pattern:

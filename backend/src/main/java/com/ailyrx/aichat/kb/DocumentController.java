@@ -33,9 +33,9 @@ public class DocumentController {
             @RequestPart(name = "file", required = false) MultipartFile file,
             @RequestAttribute(TraceIdFilter.TRACE_ID_ATTRIBUTE) String traceId) {
         try {
-            DocumentRecord document = documentService.upload(file);
-            log.info("kb upload accepted traceId={} documentId={} fileName={} size={}",
-                    traceId, document.id(), document.fileName(), document.size());
+            DocumentRecord document = documentService.upload(file, traceId);
+            log.info("kb upload accepted traceId={} documentId={} fileName={} size={} status={}",
+                    traceId, document.id(), document.fileName(), document.size(), document.status());
             return ResponseEntity.ok(ApiResponse.ok(document, traceId));
         } catch (DocumentValidationException exception) {
             log.warn("kb upload rejected traceId={} reason={}", traceId, exception.getMessage());

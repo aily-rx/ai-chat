@@ -13,5 +13,25 @@ public record DocumentRecord(
         DocumentStatus status,
         Integer chunkCount,
         Instant createdAt,
-        String errorMessage) {
+        String errorMessage,
+        String difyDatasetId,
+        String difyDocumentId) {
+
+    public DocumentRecord withIndexing(String datasetId, String documentId) {
+        return new DocumentRecord(
+                id, fileName, contentType, size, DocumentStatus.INDEXING,
+                null, createdAt, null, datasetId, documentId);
+    }
+
+    public DocumentRecord withReady(int chunks) {
+        return new DocumentRecord(
+                id, fileName, contentType, size, DocumentStatus.READY,
+                chunks, createdAt, null, difyDatasetId, difyDocumentId);
+    }
+
+    public DocumentRecord withFailed(String message) {
+        return new DocumentRecord(
+                id, fileName, contentType, size, DocumentStatus.FAILED,
+                chunkCount, createdAt, message, difyDatasetId, difyDocumentId);
+    }
 }

@@ -1,5 +1,10 @@
 package com.ailyrx.aichat.kb;
 
+import com.ailyrx.aichat.dify.DifyClient;
+import com.ailyrx.aichat.dify.DifyException;
+import com.ailyrx.aichat.dify.DifyProperties;
+import com.ailyrx.aichat.dify.DifyUploadResult;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -21,12 +26,22 @@ public class DocumentService {
             "md", "text/markdown");
 
     private final DocumentStore documentStore;
+    private final DifyClient difyClient;
+    private final DifyIndexingPoller indexingPoller;
+    private final DifyProperties difyProperties;
 
-    public DocumentService(DocumentStore documentStore) {
+    public DocumentService(
+            DocumentStore documentStore,
+            DifyClient difyClient,
+            DifyIndexingPoller indexingPoller,
+            DifyProperties difyProperties) {
         this.documentStore = documentStore;
+        this.difyClient = difyClient;
+        this.indexingPoller = indexingPoller;
+        this.difyProperties = difyProperties;
     }
 
-    public DocumentRecord upload(MultipartFile file) {
+    public DocumentRecord upload(MultipartFile file, String traceId) {
         if (file == null) {
             throw new DocumentValidationException("请选择要上传的文件");
         }
@@ -42,17 +57,44 @@ public class DocumentService {
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             throw new DocumentValidationException("不支持的文件类型，仅支持 pdf/docx/txt/md");
         }
+        String contentType = resolveContentType(file.getContentType(), extension);
 
-        DocumentRecord document = new DocumentRecord(
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException exception) {
+            throw new IllegalStateException("读取上传文件失败", exception);
+        }
+
+        DocumentRecord pending = new DocumentRecord(
                 UUID.randomUUID().toString(),
                 fileName,
-                resolveContentType(file.getContentType(), extension),
+                contentType,
                 file.getSize(),
                 DocumentStatus.PENDING,
                 null,
                 Instant.now(),
+                null,
+                null,
                 null);
-        return documentStore.save(document);
+        documentStore.save(pending);
+
+        try {
+            DifyUploadResult result = difyClient.uploadDocument(
+                    difyProperties.defaultDatasetId(),
+                    fileName,
+                    contentType,
+                    content,
+                    traceId);
+            DocumentRecord indexing = pending.withIndexing(
+                    difyProperties.defaultDatasetId(), result.documentId());
+            documentStore.save(indexing);
+            indexingPoller.startPolling(indexing, traceId);
+            return indexing;
+        } catch (DifyException exception) {
+            documentStore.save(pending.withFailed(exception.getMessage()));
+            throw exception;
+        }
     }
 
     public List<DocumentRecord> list() {

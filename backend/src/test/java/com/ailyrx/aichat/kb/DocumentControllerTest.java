@@ -2,22 +2,36 @@ package com.ailyrx.aichat.kb;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ailyrx.aichat.dify.DifyClient;
+import com.ailyrx.aichat.dify.DifyException;
+import com.ailyrx.aichat.dify.DifyProperties;
+import com.ailyrx.aichat.dify.DifyUploadResult;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.dify.base-url=http://localhost/v1",
+        "app.dify.api-key=test-key",
+        "app.dify.default-dataset-id=dataset-b",
+        "app.dify.poll-interval-ms=60000"
+})
 @AutoConfigureMockMvc
 class DocumentControllerTest {
 
@@ -27,13 +41,29 @@ class DocumentControllerTest {
     @Autowired
     private InMemoryDocumentStore documentStore;
 
+    @MockBean
+    private DifyClient difyClient;
+
+    @MockBean
+    private DifyIndexingPoller indexingPoller;
+
+    @Autowired
+    private DifyProperties difyProperties;
+
+    @Test
+    void separatorDefaultsToParagraphBreaks() {
+        assertEquals("\n\n", difyProperties.separator());
+    }
+
     @BeforeEach
     void clearStore() {
         documentStore.clear();
+        when(difyClient.uploadDocument(anyString(), anyString(), anyString(), any(byte[].class), anyString()))
+                .thenReturn(new DifyUploadResult("dify-doc-1", "notice.txt", "batch-1", "waiting"));
     }
 
     @Test
-    void uploadReturnsPendingDocument() throws Exception {
+    void uploadReturnsIndexingDocument() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "notice.txt", "text/plain", "hello".getBytes(StandardCharsets.UTF_8));
 
@@ -45,10 +75,12 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.data.fileName").value("notice.txt"))
                 .andExpect(jsonPath("$.data.contentType").value("text/plain"))
                 .andExpect(jsonPath("$.data.size").value(5))
-                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.status").value("INDEXING"))
                 .andExpect(jsonPath("$.data.chunkCount").value(nullValue()))
                 .andExpect(jsonPath("$.data.createdAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.errorMessage").value(nullValue()))
+                .andExpect(jsonPath("$.data.difyDatasetId").value("dataset-b"))
+                .andExpect(jsonPath("$.data.difyDocumentId").value("dify-doc-1"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
@@ -126,8 +158,29 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].fileName").value("second.txt"))
                 .andExpect(jsonPath("$.data[1].fileName").value("first.txt"))
-                .andExpect(jsonPath("$.data[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.data[0].status").value("INDEXING"))
                 .andExpect(jsonPath("$.data[0].chunkCount").value(nullValue()))
                 .andExpect(jsonPath("$.data[0].errorMessage").value(nullValue()));
+    }
+
+    @Test
+    void uploadMarksFailedWhenDifyUnavailable() throws Exception {
+        when(difyClient.uploadDocument(anyString(), anyString(), anyString(), any(byte[].class), anyString()))
+                .thenThrow(new DifyException("知识库服务暂不可用，请稍后重试", 503));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "notice.txt", "text/plain", "hello".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/kb/documents").file(file))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Trace-Id"))
+                .andExpect(jsonPath("$.code").value(5002))
+                .andExpect(jsonPath("$.message").value("知识库服务暂不可用，请稍后重试"))
+                .andExpect(jsonPath("$.data").value(nullValue()));
+
+        mockMvc.perform(get("/api/kb/documents"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].status").value("FAILED"))
+                .andExpect(jsonPath("$.data[0].errorMessage").value("知识库服务暂不可用，请稍后重试"));
     }
 }
