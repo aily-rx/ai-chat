@@ -1,7 +1,7 @@
-# 阶段二技术验证记录（S0–S4）
+# 阶段二技术验证记录（S0–S5）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）
-> 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S2；`docs/07-阶段二需求文档.md` v1.0
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）
+> 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S5；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
 ## 1. 环境基线
@@ -205,7 +205,7 @@ S3 通过（2026-11-25）。前端上传、状态轮询、成功/失败展示和
   - B 应用：`DIFY_APP_API_KEY`；
   - A 应用：`DIFY_APP_API_KEY_A`；
   - `DIFY_CHAT_TIMEOUT_SECONDS` 默认 120；Key 只从后端本地 `.env` 读取，不打印、不返回前端。
-- `datasetId` 缺省时使用默认数据集（当前为 B），显式值只允许 A/B 两个 ID；非法值在 SSE 建立前返回 HTTP 400 + `4000`。
+- `datasetId` 缺省时使用默认数据集（当前为 B）；显式值接受 `A`/`B` 别名或配置中的实际数据集 ID，最终归一化到 A/B 白名单；非法值在 SSE 建立前返回 HTTP 400 + `4000`。
 - `question` 非空且 ≤1000 字符；空白和超长请求由 Bean Validation 拒绝。
 - 正常事件顺序：`message* → citations（一次）→ done`；`done` 包含 `runId`（优先 Dify `message_id`）、`traceId`、`elapsedMs`。
 - 引用字段：`docId`（优先 Dify document ID，缺失时用文档名+段落稳定哈希）、`docName`、`segmentIndex`（来自 `segment_position`）、`excerpt`（空白折叠、最多 200 个 Unicode 码点）、`page=null`（Dify 当前无页码，不伪造）、`score`。
@@ -215,13 +215,13 @@ S3 通过（2026-11-25）。前端上传、状态轮询、成功/失败展示和
 
 ### 10.2 单元与接口测试
 
-`mvn -q test`：68 个测试全部通过（0 failure / 0 error / 0 skipped）。本轮新增 16 个：
+`mvn -q test`：69 个测试全部通过（0 failure / 0 error / 0 skipped）。S4 新增 16 个，S5 为前端 A/B 别名补充 1 个回归测试，共 17 个：
 
 | 测试 | 覆盖 |
 |---|---|
 | `CitationCollectorTest`（4） | 字段映射、去重取高分、排序、200 字截断、稳定兜底 ID、拒答标记 |
 | `DifyChatClientTest`（4） | 只转发 message、忽略 reasoning、解析 message_end 引用、HTTP/流内错误脱敏、缺 Key 提前拒绝 |
-| `RagControllerTest`（8） | 事件顺序、A/B Key 路由、拒答空引用、无引用错误、上游错误无 done、非法 datasetId、空/超长 question |
+| `RagControllerTest`（9） | 事件顺序、A/B Key 路由、`A` 别名路由、实际数据集 ID 兼容、拒答空引用、无引用错误、上游错误无 done、非法 datasetId、空/超长 question |
 
 `RagControllerTest` 使用 `@MockBean DifyChatClient`，不调用真实模型；测试属性使用假数据集 ID 和假 Key。
 
@@ -249,3 +249,61 @@ S3 通过（2026-11-25）。前端上传、状态轮询、成功/失败展示和
 - 拒答不是错误，但会发送一次 `citations` 且 `items=[]`，随后 `done`；不输出非空引用。
 - 参数错误发生在 SSE 建立前，按约定返回 HTTP 400 + JSON。前端 S5 发送 POST 时应使用 `Accept: text/event-stream, application/json`（或默认 `*/*`）；若只声明 `text/event-stream`，Spring 无法协商预检错误的 JSON 响应，可能返回 406。成功路径仍返回 `text/event-stream`。
 - SSE 建立后，若上游最终没有引用，已流出的回答无法撤回；后端会发送 5002 error，前端必须将该轮标记为失败/不可引用，不能计入“已回答”。
+- S5 前端使用 `A`/`B` 别名，后端在 S5 联调时补充别名归一化，同时保留实际数据集 ID 的兼容入口；两者共用同一白名单和 Key 路由。
+- `RagControllerTest` 关闭了 Spring Boot 测试的默认 MockMvc 打印（`MockMvcPrint.NONE`），避免异步 SSE 写响应头与测试结果打印并发读取导致的偶发 `ConcurrentModificationException`。
+
+## 11. S5 前端 RAG 问答与引用高亮（2026-11-25）
+
+### 11.1 已实现
+
+- 新增前端文件：
+  - `frontend/src/views/RagView.vue`：问答页容器、示例问题、自动滚动、Mock 模式提示；
+  - `frontend/src/components/RagMessage.vue`：回答气泡、引用编号/卡片、拒答态、错误态、点击定位与 2 秒高亮；
+  - `frontend/src/components/RagComposer.vue`：A/B 知识库选择、≤1000 字输入、发送/停止、Enter 发送；
+  - `frontend/src/composables/useRagChat.js`：消息、流式、引用、拒答、错误、首字/总耗时、AbortController；
+  - `frontend/src/api/rag.js`：`POST /api/rag/chat/stream` 的 SSE 读取与错误映射。
+- `App.vue` 与 `ChatHeader.vue` 新增“知识库问答”标签；阶段一“流式对话”和“结构化抽取”保留。聊天/RAG/抽取用 `v-show` 保留各自状态，知识库页仍按需挂载以停止轮询。
+- 请求头使用 `Accept: text/event-stream, application/json`，兼容参数校验失败时的 JSON 错误体和 Dify 预检失败时的 HTTP 200 JSON 错误。
+- SSE 解析：
+  - `message` 增量追加并显示流式光标；
+  - `citations` 保存本回答引用；
+  - `done` 结束 loading；空引用 + `done` 判定为拒答；
+  - `error` 显示可读错误块；网络中断映射为“无法连接后端/连接中断”；
+  - 防御性处理：`done` 前未收到 `citations`、引用结构非法时标记为错误，不冒充成功或拒答。
+- 引用展示文档名、段落序号、页码（有则显示）、摘录和分数；点击顶部引用编号滚动到对应卡片，高亮 2 秒后自动清除。`page=null` 不渲染页码。
+- 拒答显示“资料中未找到依据”，不渲染引用卡片；错误显示独立红色错误块并保留错误码与 traceId。
+- `VITE_USE_MOCK=true` 时禁用 RAG 输入并提示需要真实后端，不使用 Mock 或伪造引用。
+- 未新增运行时依赖。
+
+### 11.2 验证结果
+
+| 项目 | 方式 | 结果 |
+|---|---|---|
+| 构建 | `npm run build` | 通过，35 modules，产物正常 |
+| 后端测试 | `mvn -q test` | 69/69 通过（0 failure / 0 error / 0 skipped） |
+| 浏览器 | Headless Edge 158 + CDP，真实后端与 Dify | 页面、流式、引用、拒答、A/B、停止、错误、移动端、刷新全部通过 |
+| 逐字流式 | B 库“2027年元旦放假几天？” | 1.9s 内采集到 18 个不同长度的中间态，最终回答“2027年元旦放假3天” |
+| 引用 | 同题 | 4 条引用卡片与 4 个编号；首条为《国务院办公厅关于2027年部分节假日安排的通知》第 1 段，含文档名、摘录、分数 0.76 |
+| 引用定位 | 点击编号 [1] | 引用卡片获得高亮类，列表滚动约 200px 且卡片进入可视区；约 2 秒后高亮清除 |
+| 拒答 | “诺贝尔文学奖得主是谁？” | 回答“资料不足，无法回答该问题。”，显示“资料中未找到依据”，引用 0 条，无错误 |
+| A/B 选择 | 切换 A 库后重问元旦题 | 请求使用 A 应用/A 库，回答正常，4 条引用，footer 显示“知识库 A” |
+| 停止 | 发送后立即点击停止 | 状态“已停止”，无引用、无错误，发送按钮恢复 |
+| 错误态 | CDP 离线模拟后发送 | 显示“错误码 NETWORK / 无法连接后端，请确认服务已启动”，无引用、无拒答标记 |
+| 标签切换 | 切到“流式对话”再切回 | RAG 页隐藏/恢复，3 轮消息保留，无残留流 |
+| 移动端 | 375×812 | 无横向溢出，标签、输入框、引用卡片均在视口内 |
+| 刷新（流式进行中） | 发送后等待停止按钮出现，立即 `Page.reload` | 刷新前 `aria-busy=true`；刷新后仅欢迎消息，无用户消息/引用/停止按钮，`aria-busy=false` |
+| 刷新（完成后） | 正常完成后 `Page.reload` | 仅保留欢迎消息，无用户消息/引用/停止按钮，`aria-busy=false` |
+| 浏览器异常 | Runtime.exceptionThrown | 0 条 |
+
+- 验收脚本与截图保存在 `data/eval/s5/`（已被 gitignore）：`browser-acceptance.json`、`stop-acceptance.json`、`refresh-stream-acceptance.json`、`rag-answer-desktop.png`、`rag-citation-highlight.png`、`rag-mobile.png`。
+- 浏览器验收通过 Headless Edge 的 CDP 执行，不新增 npm 依赖；真实调用 Dify `deepseek-v4-flash`，拒答题与 A/B 切换均为真实链路。
+
+### 11.3 问题与修复
+
+- 首次浏览器验收发现回答内容不更新：`messages` 是 `ref` 数组，`push` 后继续修改 push 前的原始对象不会触发 Vue 渲染。改为在 push 后从数组中取响应式代理再更新，复测通过。
+- Mock 模式下 `RagView` 不生成任何演示数据，并明确提示 RAG 依赖真实后端，符合“不伪造引用”的约束。
+- 后端 `resolveDatasetId` 原来只接受实际 UUID；S5 增加 `A`/`B` 别名归一化，前端无需持有或暴露数据集 ID。
+
+### 11.4 验收结论
+
+S5 通过（2026-11-25）。前端 RAG 问答、引用卡片与点击定位高亮、拒答/错误区分、A/B 选择、停止、移动端和流式中刷新清理均已验证；构建与 69 个后端测试通过，未新增运行时依赖。

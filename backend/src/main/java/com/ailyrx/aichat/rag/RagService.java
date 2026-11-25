@@ -44,20 +44,34 @@ public class RagService {
      * 校验并归一化 datasetId，阻止前端指定白名单以外的知识库。
      */
     public String resolveDatasetId(String requested) {
-        String datasetId = blankToEmpty(requested);
-        if (datasetId.isEmpty()) {
+        String requestedValue = blankToEmpty(requested);
+        String datasetId;
+
+        if (requestedValue.isEmpty()) {
             datasetId = firstNonBlank(
                     datasetProperties.defaultDatasetId(),
                     datasetProperties.datasetBId());
             if (datasetId.isEmpty()) {
                 throw new DifyException("知识库问答服务未配置，请联系管理员", 0);
             }
+        } else if ("a".equalsIgnoreCase(requestedValue)) {
+            datasetId = blankToEmpty(datasetProperties.datasetAId());
+            if (datasetId.isEmpty()) {
+                throw new DifyException("A 知识库未配置，请联系管理员", 0);
+            }
+        } else if ("b".equalsIgnoreCase(requestedValue)) {
+            datasetId = blankToEmpty(datasetProperties.datasetBId());
+            if (datasetId.isEmpty()) {
+                throw new DifyException("B 知识库未配置，请联系管理员", 0);
+            }
+        } else {
+            datasetId = requestedValue;
         }
 
         boolean isA = datasetId.equals(blankToEmpty(datasetProperties.datasetAId()));
         boolean isB = datasetId.equals(blankToEmpty(datasetProperties.datasetBId()));
         if (!isA && !isB) {
-            throw new RagValidationException("datasetId 只支持 A 或 B 知识库");
+            throw new RagValidationException("datasetId 只支持 A/B 或对应数据集 ID");
         }
         return datasetId;
     }

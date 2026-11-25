@@ -1,6 +1,6 @@
 # ai-chat
 
-「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库和后端 RAG 流式问答，前端 RAG 引用交互与 Agent Workflow 仍在开发中。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答和前端引用交互，Agent Workflow 仍在开发中。
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
@@ -10,7 +10,7 @@
 | 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
 | 阶段二交付 tag | `stage2-v1.0`（开发中；需求见根目录 `docs/07-阶段二需求文档.md`） |
 | 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库 |
-| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S4 已完成（S4 后端 RAG 已真实验收），下一步 S5 前端 RAG 与引用高亮 |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S5 已完成（S5 前端 RAG 与引用高亮已真实验收），下一步 S6 15 题 A/B 评测与 badcase |
 
 ## 一、功能与请求链路
 
@@ -35,12 +35,13 @@ DeepSeek API
 - 健康检查、统一响应、traceId、全局异常处理、CORS；
 - Dify 独立交付物：Chatbot「公文问答助手」。
 
-阶段二已实现（截至 S4）：
+阶段二已实现（截至 S5）：
 
 - 知识库文档上传与状态列表：`GET/POST /api/kb/documents`，前端“知识库”页支持类型/大小校验、索引轮询与错误展示；
 - 20 份真实文本 PDF 已分别入 A/B 两个数据集，Dify 状态均为 `completed`；
 - 后端 RAG 流式问答：`POST /api/rag/chat/stream`，按 `datasetId` 路由到 A/B Chatflow，SSE 顺序为 `message* → citations → done`；
-- 引用含文档名、段落序号、摘录和分数，`page=null`；无引用不出成功终态；无答案固定拒答并返回空引用。
+- 引用含文档名、段落序号、摘录和分数，`page=null`；无引用不出成功终态；无答案固定拒答并返回空引用；
+- 前端“知识库问答”页：A/B 知识库切换、逐字流式输出、发送/停止、引用编号与卡片；点击编号滚动到对应卡片并高亮 2 秒；拒答与错误态分开展示，不伪造引用。
 
 ## 二、技术栈与版本要求
 
@@ -69,10 +70,10 @@ npm -v
 ```text
 ai-chat/
 ├─ frontend/                         # Vue3 + Vite
-│  ├─ src/api/                       # chat / extract / health / kb 请求封装
-│  ├─ src/components/                # 消息、输入框、抽取结果等组件
-│  ├─ src/composables/useChatStream.js  # SSE 流读取
-│  ├─ src/views/                     # 聊天页、知识库页、结构化抽取页
+│  ├─ src/api/                       # chat / extract / health / kb / rag 请求封装
+│  ├─ src/components/                # 消息、输入框、引用卡片、抽取结果等组件
+│  ├─ src/composables/               # useChatStream.js / useRagChat.js，SSE 状态管理
+│  ├─ src/views/                     # 聊天页、知识库页、RAG 问答页、结构化抽取页
 │  ├─ src/mock/                      # 无后端时的演示数据
 │  ├─ .env.example                   # VITE_API_BASE_URL / VITE_USE_MOCK
 │  ├─ vite.config.js                 # 5173 端口 + /api 代理到 8080
@@ -287,9 +288,9 @@ npm run dev
 VITE_USE_MOCK=true
 ```
 
-修改后重启 Vite。该模式仅用于演示，不代表真实链路。
+修改后重启 Vite。该模式仅用于演示，不代表真实链路。“知识库问答”页必须连接真实后端与 Dify；Mock 模式会禁用输入并明确提示，不生成伪造回答或引用。
 
-### 6.4 启动 Dify（独立交付物）
+### 6.4 启动 Dify（阶段二 RAG 依赖）
 
 Dify 不在本仓库内，部署目录以当前机器为准：
 
@@ -299,9 +300,9 @@ docker compose up -d
 docker compose ps
 ```
 
-等待 `docker-api-1` 变为 `healthy` 后，打开 **http://localhost/**，进入 Chatbot「公文问答助手」。Dify 不接入主链路，主链路问答仍由 Vue3 → Spring Boot → DeepSeek 完成。
+等待 `docker-api-1` 变为 `healthy` 后，打开 **http://localhost/**。阶段一 Chatbot「公文问答助手」是独立交付物；阶段二“知识库问答”页依赖 Dify 中的 `RAG对话`（B 库）与 `RAG对话-A`（A 库）两个 Chatflow 应用以及对应数据集。阶段一“流式对话”仍由 Vue3 → Spring Boot → DeepSeek 完成，不经过 Dify。
 
-> 换一台机器演示时，只拉本仓库不会带过去 Dify 和 Chatbot 数据；需要提前部署 Dify 并重建或导入 Chatbot。
+> 换一台机器演示时，只拉本仓库不会带过去 Dify、应用和数据集；需要提前部署 Dify 并按文档导入 DSL 与资料。
 
 ### 6.5 停止服务
 
@@ -394,7 +395,7 @@ curl -N -X POST http://localhost:8080/api/rag/chat/stream \
   -d '{"question":"2027年元旦放假几天？"}'
 ```
 
-`datasetId` 可省略（默认 B 库）；显式指定时只接受后端配置的 A/B 数据集 ID，其他值返回 HTTP 400 + `4000`。
+`datasetId` 可省略（默认 B 库）；显式值接受 `A`/`B` 别名或后端配置的实际数据集 ID，最终归一化到 A/B 白名单，其他值返回 HTTP 400 + `4000`。
 
 正常事件顺序：
 
@@ -417,6 +418,8 @@ data: {"runId":"...","traceId":"a1b2c3d4","elapsedMs":2656}
 
 `question` 非空且 ≤1000 字符；参数错误发生在 SSE 建立前，返回 HTTP 400 + JSON。前端请求头建议同时接受 `text/event-stream` 和 `application/json`。
 
+前端“知识库问答”页使用 `A`/`B` 别名调用该接口：回答结束后展示引用编号和引用卡片，卡片包含文档名、段落序号、页码（有则显示）、摘录和分数；点击编号会滚动到对应卡片并高亮 2 秒。拒答显示“资料中未找到依据”且不显示引用，错误显示独立错误块。
+
 完整契约：阶段一见 [接口文档](docs/api.md)；阶段二 RAG 见根目录 `docs/07-阶段二需求文档.md` §6.2，实现与验收记录见 [阶段二技术验证](docs/stage2-tech-validation.md)。
 
 ## 八、验收演示步骤（10 分钟硬性检查）
@@ -432,8 +435,9 @@ data: {"runId":"...","traceId":"a1b2c3d4","elapsedMs":2656}
 补充演示：
 
 1. **结构化抽取**：打开抽取面板或使用 curl，提交正常公文和稀疏文本，展示五字段 JSON 与 `null` 结果；说明去围栏、重试一次、`5003` 兜底。
-2. **Dify**：单独打开 http://localhost/，演示 Chatbot 回答业务问题，说明其不接入主链路。
-3. **密钥检查**：
+2. **知识库问答**：切换到“知识库问答”，选择 B 库提问“2027年元旦放假几天？”，观察逐字输出、停止按钮、引用卡片和点击编号后的定位高亮；再问一个资料外问题展示“资料中未找到依据”；切换 A 库重复一次，展示 A/B 路由。
+3. **Dify**：打开 http://localhost/，说明阶段一 Chatbot 是独立交付物，阶段二 RAG 页面依赖 `RAG对话` / `RAG对话-A` 与 A/B 数据集。
+4. **密钥检查**：
 
 ```bash
 git ls-files | grep -E '(^|/)\.env$' || echo "no .env tracked"
@@ -467,9 +471,8 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 - MySQL、会话表、消息表、历史会话；
 - 私有 vLLM、整体一键部署、移动端适配。
 
-阶段二截至 S4 尚未完成：
+阶段二截至 S5 尚未完成：
 
-- S5 前端 RAG 问答与引用点击高亮、拒答态；
 - S6 15 题 A/B 评测与至少 3 条 badcase 归因；
 - S7 Dify Workflow / Agent、工具与兜底分支；
 - S8 人工确认与 Markdown/DOCX 导出；

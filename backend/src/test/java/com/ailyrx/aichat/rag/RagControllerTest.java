@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.MockMvcPrint;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -35,7 +36,7 @@ import org.springframework.test.web.servlet.MvcResult;
         "app.dify-chat.app-a-key=test-app-key-a",
         "app.dify-chat.app-b-key=test-app-key-b"
 })
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 class RagControllerTest {
 
     @Autowired
@@ -81,14 +82,25 @@ class RagControllerTest {
     }
 
     @Test
-    void routesDatasetAToApplicationA() throws Exception {
+    void routesDatasetAAliasToApplicationA() throws Exception {
+        stubChat(List.of("A库回答"), List.of(new DifyRetrieverResource(
+                "dataset-a", "doc-a", "A资料.pdf", 2, "A资料片段", 0.7)));
+
+        MvcResult result = begin("{\"question\":\"A库问题\",\"datasetId\":\"A\"}");
+        String body = responseBody(complete(result));
+
+        assertThat(body).contains("event:done");
+        verify(difyChatClient).streamChat(
+                eq("test-app-key-a"), eq("A库问题"), any(), any(), anyString());
+    }
+
+    @Test
+    void acceptsConfiguredDatasetIdOutsideAliases() throws Exception {
         stubChat(List.of("A库回答"), List.of(new DifyRetrieverResource(
                 "dataset-a", "doc-a", "A资料.pdf", 2, "A资料片段", 0.7)));
 
         MvcResult result = begin("{\"question\":\"A库问题\",\"datasetId\":\"dataset-a\"}");
-        String body = responseBody(complete(result));
-
-        assertThat(body).contains("event:done");
+        assertThat(responseBody(complete(result))).contains("event:done");
         verify(difyChatClient).streamChat(
                 eq("test-app-key-a"), eq("A库问题"), any(), any(), anyString());
     }
@@ -150,7 +162,7 @@ class RagControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(header().exists("X-Trace-Id"))
                 .andExpect(jsonPath("$.code").value(4000))
-                .andExpect(jsonPath("$.message").value("datasetId 只支持 A 或 B 知识库"))
+                .andExpect(jsonPath("$.message").value("datasetId 只支持 A/B 或对应数据集 ID"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 

@@ -151,9 +151,15 @@ code,
   align-items: center;
   gap: 4px;
   padding: 4px;
+  overflow-x: auto;
   border-radius: 12px;
   background: #eef2f6;
   border: 1px solid var(--line);
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-button {
@@ -164,6 +170,7 @@ code,
   color: var(--muted);
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
   transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -527,8 +534,9 @@ code,
 
 .composer__top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 10px 14px;
   margin-bottom: 10px;
 }
 
@@ -618,6 +626,174 @@ code,
   min-height: 18px;
   color: #8a95a1;
   font-size: 11px;
+}
+
+.rag-meta-dataset {
+  margin-left: auto;
+}
+
+.rag-dataset-hint {
+  color: #8a95a1;
+  font-size: 11px;
+}
+
+.rag-mock-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  border: 1px solid #fde6b0;
+  border-radius: var(--radius-md);
+  background: #fffaeb;
+  color: var(--warning);
+  font-size: 12.5px;
+}
+
+.rag-mock-notice code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(146, 64, 14, 0.08);
+  font-size: 0.95em;
+}
+
+.rag-refusal {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: min(100%, 760px);
+  padding: 10px 14px;
+  border: 1px solid #fde6b0;
+  border-radius: var(--radius-md);
+  background: #fffaeb;
+  color: var(--warning);
+  font-size: 12.5px;
+}
+
+.rag-refusal strong {
+  font-size: 13px;
+}
+
+.rag-refusal span {
+  line-height: 1.65;
+}
+
+.citation-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, 800px);
+}
+
+.citation-section__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.citation-section__header strong {
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.citation-section__hint {
+  margin-left: auto;
+  color: #8a95a1;
+  font-size: 11px;
+}
+
+.citation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.citation-chip {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #b9ddd8;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  padding: 5px 10px;
+  color: var(--accent-strong);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.citation-chip:hover {
+  border-color: #73b9b1;
+  background: #d9efeb;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.12);
+}
+
+.citation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.citation-card {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid #9dd5ce;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  scroll-margin: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.citation-card--highlight {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.citation-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.citation-card__index {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.citation-card__doc {
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.citation-card__meta {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.citation-card__score {
+  margin-left: auto;
+  color: #8a95a1;
+  font-variant-numeric: tabular-nums;
+}
+
+.citation-card__excerpt {
+  margin: 6px 0 0;
+  color: #4d5b68;
+  font-size: 12.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .primary-button,
@@ -1234,8 +1410,35 @@ code,
     max-height: 58vh;
   }
 
+  .tabs {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .tab-button {
+    padding: 8px 5px;
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+
   .message__bubble {
     max-width: 92%;
+  }
+
+  .citation-section {
+    width: 100%;
+  }
+
+  .citation-section__hint {
+    display: none;
+  }
+
+  .citation-card__score {
+    margin-left: 0;
+  }
+
+  .rag-meta-dataset {
+    margin-left: 0;
   }
 
   .message__error {

@@ -32,7 +32,7 @@ const statusLabel = computed(() => {
       <span class="brand-mark">AI</span>
       <div>
         <h1>AI 公文助手</h1>
-        <p>阶段二 · 知识库、对话与结构化抽取</p>
+        <p>阶段二 · 知识库、RAG 问答与结构化抽取</p>
       </div>
     </div>
 
@@ -52,6 +52,14 @@ const statusLabel = computed(() => {
         @click="$emit('update:activeTab', 'kb')"
       >
         知识库
+      </button>
+      <button
+        type="button"
+        :class="['tab-button', { active: activeTab === 'rag' }]"
+        :aria-pressed="activeTab === 'rag'"
+        @click="$emit('update:activeTab', 'rag')"
+      >
+        知识库问答
       </button>
       <button
         type="button"
