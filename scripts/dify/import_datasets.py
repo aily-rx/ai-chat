@@ -365,6 +365,17 @@ def write_manifest(
     generated_at: str,
 ) -> None:
     by_key = {key: {doc["docName"]: doc for doc in payload["documents"]} for key, payload in exports.items()}
+    total_a = sum(doc["chunkCount"] for doc in exports["a"]["documents"])
+    total_b = sum(doc["chunkCount"] for doc in exports["b"]["documents"])
+    short_a = [doc for doc in exports["a"]["documents"] if doc["minChars"] < 50]
+    short_note = "无" if not short_a else "、".join(
+        f"{doc['docName']}（{doc['chunkCount']} 段，最短 {doc['minChars']} 字）"
+        for doc in short_a
+    )
+    if len(docs) < 20:
+        count_note = f"当前资料数量 {len(docs)} 份，未达到 S2 要求的 20 份；清单如实记录实际数量。"
+    else:
+        count_note = f"资料数量 {len(docs)} 份，已达到 S2 最低要求（目标 20–30 份）；来源 URL 未确认前仍保留待补录标记。"
     lines = [
         "# 阶段二知识库数据清单",
         "",
@@ -397,7 +408,8 @@ def write_manifest(
     for doc in docs:
         a_stats = by_key["a"].get(doc.name, {})
         b_stats = by_key["b"].get(doc.name, {})
-        source = sources.get(doc.name, "待补录来源")
+        default_source = "中国政府网（URL 待补录）" if "中国政府网" in doc.name else "待补录来源"
+        source = sources.get(doc.name, default_source)
         pages = page_count(doc)
         lines.append(
             f"| {doc.name} | {source} | {pages if pages is not None else '-'} | "
@@ -408,12 +420,15 @@ def write_manifest(
     lines.extend(
         [
             "",
+            f"- 汇总：A 共 {total_a} 段，B 共 {total_b} 段。",
+            "",
             "## 口径偏差与说明",
             "",
             f"- Dify 自定义分段参数 `max_tokens` 按 token 计，不是字符数；策略 A 使用正文中不出现的哨兵分隔符 `{FIXED_SPLIT_SENTINEL}`，让 Dify 对整个文档递归切分到 500 token 上限，近似“固定 500 字符”，实际字符范围见上表。",
             f"- 策略 B 使用段落分隔 `{display_separator(STRATEGIES['b']['separator'])}`，上限 800 token，重叠 100；同一批资料与 A 使用相同 Embedding 和生成模型。",
-            "- 策略 A 在 500 token 上限下可能出现标题行孤立导致的短碎段（本次 3 份资料中《基金会管理条例》最短 5 字符）；S6 评测前需评估是否接受，评测报告不得隐去该偏差。",
-            "- 当前资料数量未达到 S2 要求的 20 份，清单如实记录实际数量；来源 URL 未确认前保留“待补录来源”，不得编造。",
+            f"- 策略 A 在 500 token 上限下可能出现标题行孤立导致的短碎段：{short_note}。S6 评测前需评估是否接受，评测报告不得隐去该偏差。",
+            f"- {count_note}",
+            "- 来源 URL 未确认前保留“URL 待补录”标记，不得编造；可用 `--source-map` 传入 `{文件名: URL}` 后重新生成清单。",
             "- 页码字段在 Dify 分段/检索结果中不可用，引用提供文档名、分段序号和摘录；页码缺省。",
             "- `数据/eval/chunks-{a,b}.json` 为逐段切分记录，包含文档名、策略、段落序号和字符数，供 S6 评测使用。",
         ]
