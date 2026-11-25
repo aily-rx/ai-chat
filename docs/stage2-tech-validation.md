@@ -1,6 +1,6 @@
-# 阶段二技术验证记录（S0–S2）
+# 阶段二技术验证记录（S0–S4）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 Dify 应用预检通过，A/B 双应用已就绪（2026-11-25，后端 S4 尚未实现）
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）
 > 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S2；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
@@ -139,7 +139,7 @@ S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 hum
 | 拒答 | 问题“请介绍火星上的中医诊所。” | 回答“资料不足，无法回答该问题。”；Dify 仍返回 4 条低分资源 |
 
 - 模型按用户确认使用 Dify 中的 `deepseek-v4` 系列；应用界面实际显示 `deepseek-v4-flash`。阶段一后端的 `deepseek-chat` 仅用于旧接口，不用于本阶段 RAG 评测；评测报告需记录 Dify 实际模型名。
-- S4 映射要求：只把 `event: message` 的增量映射为 SSE `message`；忽略 `reasoning_chunk`；拒答时不生成 `citations`；`citations` 必须在 `done` 前发送。
+- S4 映射要求：只把 `event: message` 的增量映射为 SSE `message`；忽略 `reasoning_chunk`；拒答时 `citations.items` 必须为空，不能输出非空引用；`citations` 必须在 `done` 前发送。
 
 ### 8.1 A/B 双应用准备（2026-11-25）
 
@@ -190,3 +190,62 @@ S0 通过（2026-11-24）。文本上传、索引、检索、引用字段与 hum
 ### 9.3 验收结论
 
 S3 通过（2026-11-25）。前端上传、状态轮询、成功/失败展示和真实 Dify 索引链路均已验证；临时验收文档已删除，知识库恢复为 A/B 各 20 份。
+
+## 10. S4 后端 RAG 流式代理（2026-11-25）
+
+### 10.1 已实现
+
+- 新增 `backend/src/main/java/com/ailyrx/aichat/rag/`：
+  - `RagController`：`POST /api/rag/chat/stream`，沿用 `SseEmitter`（120s）与 `chatExecutor`；
+  - `RagService`：A/B 路由、SSE 编排、拒答识别、错误终止；
+  - `DifyChatClient`：调用 Dify Chatflow `POST /chat-messages`（`response_mode=streaming`），只转发 `event: message` 的 `answer`，忽略 `reasoning_chunk` 与 workflow/node 事件；
+  - `CitationCollector`：从 `message_end.metadata.retriever_resources` 映射、去重、按分数排序；
+  - DTO：`CitationItem`、`CitationPayload`、`DifyRetrieverResource`、`DifyChatResult`、`RagRequest`。
+- 新增 `app.dify-chat.*` 配置，将应用 Key 与数据集 Key 分离：
+  - B 应用：`DIFY_APP_API_KEY`；
+  - A 应用：`DIFY_APP_API_KEY_A`；
+  - `DIFY_CHAT_TIMEOUT_SECONDS` 默认 120；Key 只从后端本地 `.env` 读取，不打印、不返回前端。
+- `datasetId` 缺省时使用默认数据集（当前为 B），显式值只允许 A/B 两个 ID；非法值在 SSE 建立前返回 HTTP 400 + `4000`。
+- `question` 非空且 ≤1000 字符；空白和超长请求由 Bean Validation 拒绝。
+- 正常事件顺序：`message* → citations（一次）→ done`；`done` 包含 `runId`（优先 Dify `message_id`）、`traceId`、`elapsedMs`。
+- 引用字段：`docId`（优先 Dify document ID，缺失时用文档名+段落稳定哈希）、`docName`、`segmentIndex`（来自 `segment_position`）、`excerpt`（空白折叠、最多 200 个 Unicode 码点）、`page=null`（Dify 当前无页码，不伪造）、`score`。
+- 拒答识别固定话术（`资料不足`、`无法回答该问题` 等）：发送 `citations.items=[]` 和 `done`，不当作错误，也不保留 Dify 返回的低分资源。
+- 非拒答但引用为空：发送 `error`（5002，“本次引用不可用”），不伪装成功。
+- Dify HTTP 错误、流内 `error` 事件、超时或网络异常：统一返回脱敏后的 SSE `error`（5002），不暴露上游响应体、Key 或堆栈。
+
+### 10.2 单元与接口测试
+
+`mvn -q test`：68 个测试全部通过（0 failure / 0 error / 0 skipped）。本轮新增 16 个：
+
+| 测试 | 覆盖 |
+|---|---|
+| `CitationCollectorTest`（4） | 字段映射、去重取高分、排序、200 字截断、稳定兜底 ID、拒答标记 |
+| `DifyChatClientTest`（4） | 只转发 message、忽略 reasoning、解析 message_end 引用、HTTP/流内错误脱敏、缺 Key 提前拒绝 |
+| `RagControllerTest`（8） | 事件顺序、A/B Key 路由、拒答空引用、无引用错误、上游错误无 done、非法 datasetId、空/超长 question |
+
+`RagControllerTest` 使用 `@MockBean DifyChatClient`，不调用真实模型；测试属性使用假数据集 ID 和假 Key。
+
+### 10.3 真实验收
+
+服务：Dify 1.19.0 本地运行，模型 `deepseek-v4-flash`；后端连接真实 Dify，B 库默认、A 库显式路由。原始 SSE 保存在 `data/eval/s4/`（已被 gitignore），未提交真实资料或回答。
+
+| 编号 | 问题 | 结果 | 引用 | 终止顺序 | 耗时 |
+|---|---|---|---|---|---|
+| q1 | 2027年元旦放假几天？ | 回答“共 3 天”，与《国务院办公厅关于2027年部分节假日安排的通知》一致 | 4 条，首条为该通知 segment 1 | `citations → done` | 2.66s |
+| q2 | 根据《事业单位登记管理条例》，全国事业单位登记管理工作由哪个机关负责？ | 回答“国家事业单位登记管理机关” | 4 条，均指向该条例 | `citations → done` | 2.21s |
+| q3 | “双友好医院”建设要求医疗机构在哪些方面做到友好？ | 回答五个方面；与原文一致 | 4 条，均指向该通知 | `citations → done` | 2.64s |
+| a-smoke | 同 q1，`datasetId=A` | 回答“3 天”；走 A 应用/A 库 | 4 条 | `citations → done` | 2.44s |
+| n1–n5 | 诺贝尔文学奖、巧克力蛋糕、火星距离、红楼梦作者、特斯拉交付量 | 5/5 输出“资料不足，无法回答该问题。” | 0 条（即使 Dify 返回低分资源也不透传） | `citations → done` | 1.58–2.04s |
+
+- 有答案请求 4/4（B 库 3 + A 冒烟 1）均带 4 条引用，引用完整率 100%；无答案拒答率 5/5。
+- 所有成功请求均先收到 `citations` 再收到 `done`；无 `error`。真实 `page` 为 `null`，未伪造页码。
+- A/B 路由由单元测试验证 Key 选择；A 冒烟使用真实 A 应用，引用文档与 A 库内容对应。Dify 数据集 ID 不对外暴露。
+- SSE 中未出现 `reasoning_chunk`、内部 workflow 事件或应用 Key；后端日志记录 traceId、数据集、耗时和引用数，不记录问题、回答或 Key。
+- 错误路径（无引用、上游异常、非法参数）由自动化测试覆盖。本轮未主动停止用户手动启动的 Dify 来做真实断连演练。
+
+### 10.4 契约偏差与注意事项
+
+- `docs/08` S4 任务 3 写有“发 error 并以 done 收尾”，与 `docs/07` 的“每次请求必须以 done 或 error 结束”以及阶段一实现冲突。S4 采用后者：**error 是终止事件，之后不再追加 done**；前端应按终止事件处理，不等待 done。
+- 拒答不是错误，但会发送一次 `citations` 且 `items=[]`，随后 `done`；不输出非空引用。
+- 参数错误发生在 SSE 建立前，按约定返回 HTTP 400 + JSON。前端 S5 发送 POST 时应使用 `Accept: text/event-stream, application/json`（或默认 `*/*`）；若只声明 `text/event-stream`，Spring 无法协商预检错误的 JSON 响应，可能返回 406。成功路径仍返回 `text/event-stream`。
+- SSE 建立后，若上游最终没有引用，已流出的回答无法撤回；后端会发送 5002 error，前端必须将该轮标记为失败/不可引用，不能计入“已回答”。

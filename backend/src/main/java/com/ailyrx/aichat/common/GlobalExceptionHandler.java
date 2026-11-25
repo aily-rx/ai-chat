@@ -2,6 +2,7 @@ package com.ailyrx.aichat.common;
 
 import com.ailyrx.aichat.config.TraceIdFilter;
 import com.ailyrx.aichat.dify.DifyException;
+import com.ailyrx.aichat.rag.RagValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -36,6 +37,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnreadableBody(HttpServletRequest request) {
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(ErrorCodes.INVALID_PARAMETER, "请求体格式错误", resolveTraceId(request)));
+    }
+
+    @ExceptionHandler(RagValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRagValidation(
+            RagValidationException exception,
+            HttpServletRequest request) {
+        String traceId = resolveTraceId(request);
+        log.warn("rag request rejected traceId={} reason={}", traceId, exception.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(ErrorCodes.INVALID_PARAMETER, exception.getMessage(), traceId));
     }
 
     @ExceptionHandler(DifyException.class)

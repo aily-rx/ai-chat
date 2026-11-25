@@ -1,6 +1,6 @@
 # ai-chat
 
-「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二进入 RAG 知识库与 Agent 工作流开发。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库和后端 RAG 流式问答，前端 RAG 引用交互与 Agent Workflow 仍在开发中。
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
@@ -9,8 +9,8 @@
 | GitHub | https://github.com/aily-rx/ai-chat |
 | 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
 | 阶段二交付 tag | `stage2-v1.0`（开发中；需求见根目录 `docs/07-阶段二需求文档.md`） |
-| 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二将接入 Dify 知识库/Workflow |
-| 交付状态 | 阶段一 S0–S8 已完成；阶段二需求已确认，开发未开始 |
+| 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库 |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S4 已完成（S4 后端 RAG 已真实验收），下一步 S5 前端 RAG 与引用高亮 |
 
 ## 一、功能与请求链路
 
@@ -23,7 +23,8 @@ Spring Boot http://localhost:8080
         ▼
 DeepSeek API
 
-Dify 1.19.0：本地独立部署，独立演示，不接入主链路
+阶段二 RAG：
+浏览器 → POST /api/rag/chat/stream（SSE）→ Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库
 ```
 
 阶段一已实现：
@@ -34,6 +35,13 @@ Dify 1.19.0：本地独立部署，独立演示，不接入主链路
 - 健康检查、统一响应、traceId、全局异常处理、CORS；
 - Dify 独立交付物：Chatbot「公文问答助手」。
 
+阶段二已实现（截至 S4）：
+
+- 知识库文档上传与状态列表：`GET/POST /api/kb/documents`，前端“知识库”页支持类型/大小校验、索引轮询与错误展示；
+- 20 份真实文本 PDF 已分别入 A/B 两个数据集，Dify 状态均为 `completed`；
+- 后端 RAG 流式问答：`POST /api/rag/chat/stream`，按 `datasetId` 路由到 A/B Chatflow，SSE 顺序为 `message* → citations → done`；
+- 引用含文档名、段落序号、摘录和分数，`page=null`；无引用不出成功终态；无答案固定拒答并返回空引用。
+
 ## 二、技术栈与版本要求
 
 | 组件 | 版本/要求 |
@@ -43,8 +51,8 @@ Dify 1.19.0：本地独立部署，独立演示，不接入主链路
 | 构建 | Maven 3.9+ |
 | Node.js | **`^20.19.0` 或 `>=22.12.0`**（Vite 8 要求，推荐 22 LTS） |
 | 包管理 | npm |
-| 模型 API | DeepSeek OpenAI 兼容接口，默认 `deepseek-chat` |
-| Dify | 1.19.0（Docker Compose，独立交付物；仅演示 Dify 时需要） |
+| 模型 API | 阶段一：DeepSeek OpenAI 兼容接口，默认 `deepseek-chat`；阶段二 RAG：Dify Chatflow 内配置 `deepseek-v4-flash` |
+| Dify | 1.19.0（Docker Compose；阶段二 RAG 主链路依赖） |
 | Git | 任意近期版本 |
 
 检查环境：
@@ -61,10 +69,10 @@ npm -v
 ```text
 ai-chat/
 ├─ frontend/                         # Vue3 + Vite
-│  ├─ src/api/                       # chat / extract / health 请求封装
+│  ├─ src/api/                       # chat / extract / health / kb 请求封装
 │  ├─ src/components/                # 消息、输入框、抽取结果等组件
 │  ├─ src/composables/useChatStream.js  # SSE 流读取
-│  ├─ src/views/                     # 聊天页、结构化抽取页
+│  ├─ src/views/                     # 聊天页、知识库页、结构化抽取页
 │  ├─ src/mock/                      # 无后端时的演示数据
 │  ├─ .env.example                   # VITE_API_BASE_URL / VITE_USE_MOCK
 │  ├─ vite.config.js                 # 5173 端口 + /api 代理到 8080
@@ -72,9 +80,12 @@ ai-chat/
 ├─ backend/                          # Spring Boot 3 + JDK 17
 │  ├─ src/main/java/com/ailyrx/aichat/
 │  │  ├─ chat/                       # /api/chat/stream
+│  │  ├─ kb/                         # /api/kb/documents
+│  │  ├─ rag/                        # /api/rag/chat/stream、Dify 流式客户端、引用映射
 │  │  ├─ extract/                    # /api/extract
 │  │  ├─ health/                     # /api/health
 │  │  ├─ llm/                        # DeepSeek 调用封装
+│  │  ├─ dify/                       # Dify 数据集 API 适配
 │  │  ├─ prompt/                     # Prompt 模板加载
 │  │  ├─ common/                     # 统一响应、错误码、全局异常
 │  │  └─ config/                     # traceId、CORS、线程池
@@ -140,7 +151,21 @@ LLM_TIMEOUT_SECONDS=60
 
 # 结构化抽取温度；0.0 降低随机性，提高 JSON 稳定性
 LLM_EXTRACT_TEMPERATURE=0.0
+
+# Dify Service API（数据集范围；知识库上传/列表）
+DIFY_BASE_URL=http://localhost/v1
+DIFY_DATASET_API_KEY=
+DIFY_DEFAULT_DATASET_ID=
+DIFY_DATASET_A_ID=
+DIFY_DATASET_B_ID=
+
+# Dify Service API（应用范围；RAG 问答。B 应用默认，A 应用单独配置）
+DIFY_APP_API_KEY=
+DIFY_APP_API_KEY_A=
+DIFY_CHAT_TIMEOUT_SECONDS=120
 ```
+
+> Dify 两类 Key 都由本地后端 `.env` 注入，禁止提交或写入前端。真实数据集 ID 可写入清单，但真实 Key 不得出现在文档、日志、脚本或对话记录中。
 
 | 变量 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
@@ -150,6 +175,13 @@ LLM_EXTRACT_TEMPERATURE=0.0
 | `LLM_MODEL` | 否 | `deepseek-chat` | 模型名称 |
 | `LLM_TIMEOUT_SECONDS` | 否 | `60` | 模型调用超时时间 |
 | `LLM_EXTRACT_TEMPERATURE` | 否 | `0.0` | 结构化抽取的模型温度，降低随机性 |
+| `DIFY_BASE_URL` | 否 | `http://localhost/v1` | Dify Service API 地址 |
+| `DIFY_DATASET_API_KEY` | 知识库功能必填 | 无 | Dify 数据集 API Key；不能与 App Key 混用 |
+| `DIFY_DEFAULT_DATASET_ID` | RAG 缺省时必填 | 无 | 默认数据集，当前为 B 库 |
+| `DIFY_DATASET_A_ID` / `DIFY_DATASET_B_ID` | RAG 必填 | 无 | A/B 数据集 ID，用于 `datasetId` 白名单和 Key 路由 |
+| `DIFY_APP_API_KEY` | RAG 必填 | 无 | B 应用 `RAG对话` 的 Service API Key |
+| `DIFY_APP_API_KEY_A` | A 库问答必填 | 无 | A 应用 `RAG对话-A` 的 Service API Key |
+| `DIFY_CHAT_TIMEOUT_SECONDS` | 否 | `120` | RAG 流式请求超时；与 SSE 120s 对齐 |
 
 后端由 `application.yml` 通过 `optional:file:./.env` 加载配置，因此推荐在**项目根目录**执行启动命令，并确保 `.env` 位于项目根目录。修改 `.env` 后需要重启后端。
 
@@ -288,8 +320,11 @@ docker compose down
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | `GET` | `/api/health` | 健康检查 |
-| `POST` | `/api/chat/stream` | 流式对话，SSE 返回 |
+| `POST` | `/api/chat/stream` | 阶段一流式对话，SSE 返回 |
 | `POST` | `/api/extract` | 公文五要素结构化抽取 |
+| `GET` | `/api/kb/documents` | 知识库文档列表 |
+| `POST` | `/api/kb/documents` | 上传知识库文档（multipart，pdf/docx/txt/md，≤20MB） |
+| `POST` | `/api/rag/chat/stream` | RAG 流式问答，SSE 返回 `message/citations/done/error` |
 | `POST` | `/api/chat` | 阶段一未实现（可选调试接口） |
 
 ### 7.1 健康检查
@@ -348,7 +383,41 @@ curl -X POST http://localhost:8080/api/extract \
 
 五个字段固定为 `docType`、`title`、`recipient`、`signature`、`date`；无法识别时返回 `null`，字段名不会省略。解析失败重试 1 次后仍失败返回 `code=5003`，模型调用失败返回 `code=5001`。
 
-完整契约见 [接口文档](docs/api.md)。
+### 7.4 RAG 流式问答
+
+前置：Dify 已启动，后端 `.env` 已配置 A/B 数据集 ID、`DIFY_APP_API_KEY` 与 `DIFY_APP_API_KEY_A`。
+
+```bash
+curl -N -X POST http://localhost:8080/api/rag/chat/stream \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream, application/json" \
+  -d '{"question":"2027年元旦放假几天？"}'
+```
+
+`datasetId` 可省略（默认 B 库）；显式指定时只接受后端配置的 A/B 数据集 ID，其他值返回 HTTP 400 + `4000`。
+
+正常事件顺序：
+
+```text
+event: message
+data: {"delta":"根据资料，"}
+
+...
+
+event: citations
+data: {"items":[{"docId":"...","docName":"...pdf","segmentIndex":1,"excerpt":"...","page":null,"score":0.83}]}
+
+event: done
+data: {"runId":"...","traceId":"a1b2c3d4","elapsedMs":2656}
+```
+
+- 拒答不是错误：回答固定话术，`citations.items=[]`，随后 `done`；
+- 非拒答但引用为空，或 Dify/网络异常：`event: error`（5002）为终止事件，不再发送 `done`；
+- 前端 SSE 读取不应等待 error 后的 `done`，且不得把无引用的回答计为成功。
+
+`question` 非空且 ≤1000 字符；参数错误发生在 SSE 建立前，返回 HTTP 400 + JSON。前端请求头建议同时接受 `text/event-stream` 和 `application/json`。
+
+完整契约：阶段一见 [接口文档](docs/api.md)；阶段二 RAG 见根目录 `docs/07-阶段二需求文档.md` §6.2，实现与验收记录见 [阶段二技术验证](docs/stage2-tech-validation.md)。
 
 ## 八、验收演示步骤（10 分钟硬性检查）
 
@@ -392,15 +461,21 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 
 ## 十、已知限制与下一步
 
-阶段一明确不做：
+阶段一明确不做（仍然成立）：
 
 - 登录、JWT、RBAC、多用户；
 - MySQL、会话表、消息表、历史会话；
-- RAG 知识库、文档解析、向量检索、Rerank；
-- Dify Workflow / Agent、工具/MCP 编排，以及将 Dify 接入主链路；
 - 私有 vLLM、整体一键部署、移动端适配。
 
-后续 W3 起将围绕 RAG 知识库、引用溯源、Dify 知识流水线和 Agent 工作流继续迭代。
+阶段二截至 S4 尚未完成：
+
+- S5 前端 RAG 问答与引用点击高亮、拒答态；
+- S6 15 题 A/B 评测与至少 3 条 badcase 归因；
+- S7 Dify Workflow / Agent、工具与兜底分支；
+- S8 人工确认与 Markdown/DOCX 导出；
+- S9/S10 文档、DSL、回归与 `stage2-v1.0` 标签。
+
+A 策略仍存在少量 5 字碎段，S6 评测前需评估是否接受，并在报告中如实记录。
 
 ## 十一、提交规范
 
