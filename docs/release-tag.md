@@ -2,7 +2,7 @@
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`。阶段一 tag 内的文件仍保留旧仓库名，属于历史快照；GitHub 旧链接自动重定向。
 >
-> 阶段一最终 tag 为 `stage1-v1.4`；阶段二本地交付 tag 为 `stage2-v1.0`（2026-11-26 创建，远程推送/Release 待授权），状态见文末“阶段二 tag（本地创建）”。
+> 阶段一最终 tag 为 `stage1-v1.4`；阶段二交付 tag 为 `stage2-v1.0`（2026-11-26 创建并推送 `origin`，GitHub Release 未创建），状态见文末“阶段二 tag（已推送）”。
 
 ## 当前最终 tag
 
@@ -69,19 +69,19 @@ b73d91bf0f8178b85ee1a1baa48cee8ac9bed7a6
 - `stage1-v1.3` 保留为代码修复后的历史快照，不包含后续交叉评审文档；
 - 不要用 `stage1-v1` 或 `stage1-v1.1` 替代最终交付版本。
 
-## 阶段二 tag（本地创建）
+## 阶段二 tag（已推送）
 
 | 项目 | 内容 |
 |---|---|
 | Tag 名称 | `stage2-v1.0` |
 | Tag 类型 | annotated tag |
 | 创建日期 | 2026-11-26 |
-| 当前状态 | **已在本地创建**；`origin` 未推送，GitHub Release 未创建 |
+| 当前状态 | **已创建并推送到 `origin`**；GitHub Release 未创建 |
 | 代码范围 | FR-10 驳回回退、FR-13 导出引用、W4/S10 文档与脚本、已知边界清单 |
-| 当前代码 | 本地 `main` 最终提交；`origin/main` 仍为 `e057d0d` |
+| 当前代码 | tag 指向阶段二实现提交 `d161bd8`；后续 `main` 仅追加文档状态提交，不移动 tag |
 | 前置条件 | 已明确授权提交与打本地 tag；S10 临时快照彩排已通过 |
-| 后续校验 | 从 tag 做无覆盖克隆，补跑构建/启动/上传临时库/RAG/Workflow UI/异常路径；完成后再推送与 Release |
-| 说明 | 本地 tag 不等同于远程交付；不伪造远程 tag、Release 或 PR；边界见 `docs/stage2-known-boundaries.md` |
+| 后续校验 | 从 tag 做无覆盖克隆，补跑构建/启动/上传临时库/RAG/Workflow UI/异常路径；完成后补 GitHub Release 说明 |
+| 说明 | tag 已推送但不代表无覆盖复跑完成；不伪造 Release 或 PR；边界见 `docs/stage2-known-boundaries.md` |
 
 本地校验命令（不访问远程）：
 
@@ -91,4 +91,4 @@ git show -s --format="%H %s" stage2-v1.0
 git describe --tags --exact-match
 ```
 
-远程发布前需另获 push/Release 授权；不得用 `stage1-v1.4` 替代阶段二交付，也不得把临时快照彩排写成 tag 无覆盖通过。
+tag 已推送，GitHub Release 仍需另获授权；远程引用已用 `git ls-remote origin refs/heads/main refs/tags/stage2-v1.0` 核对；不得用 `stage1-v1.4` 替代阶段二交付，也不得把临时快照彩排写成 tag 无覆盖通过。

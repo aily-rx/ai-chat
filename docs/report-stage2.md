@@ -8,8 +8,8 @@
 | 指导教师 | （待填写） |
 | 仓库 | https://github.com/aily-rx/ai-chat |
 | 演示地址 | 前端 http://localhost:5173；后端 http://localhost:8080；Dify http://localhost |
-| 版本 tag | `stage2-v1.0`（2026-11-26 本地 annotated tag；含 FR-10/FR-13 与 W4/S10 材料；远程推送/Release 待授权） |
-| PR/评审 | 阶段二在本地 `main` 纵向提交，未创建 GitHub PR；自审记录与同伴评审偏差见 `docs/pr-log.md` |
+| 版本 tag | `stage2-v1.0`（2026-11-26 annotated tag，已推送 `origin`；含 FR-10/FR-13 与 W4/S10 材料；GitHub Release 未创建） |
+| PR/评审 | 阶段二在 `main` 纵向提交并已推送 `origin`，未创建 GitHub PR；自审记录与同伴评审偏差见 `docs/pr-log.md` |
 
 ## 一、本次硬性检查项自测（只填 1 项）
 

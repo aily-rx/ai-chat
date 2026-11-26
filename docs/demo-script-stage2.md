@@ -71,7 +71,7 @@ git log --oneline -3
 git ls-files | grep -E '(^|/)\.env$' || echo "no .env tracked"
 ```
 
-话术：模型和 Dify Key 只放在本地 `.env`，`.env` 不入库；真实资料与评测导出也在 gitignore 中，仓库只保留脱敏题集 `data/eval/questions.json`。阶段二代码在本地默认分支，本地 `stage2-v1.0` annotated tag 已创建；远程推送/Release 与 tag 无覆盖完整复跑仍待后续；不伪造远程 tag 或 PR。
+话术：模型和 Dify Key 只放在本地 `.env`，`.env` 不入库；真实资料与评测导出也在 gitignore 中，仓库只保留脱敏题集 `data/eval/questions.json`。阶段二 `main` 与 annotated tag `stage2-v1.0` 已推送 `origin`；GitHub Release 与 tag 无覆盖完整复跑仍待后续；不伪造 Release 或 PR。
 
 ## 3. 上传与索引（0:30–1:20）
 

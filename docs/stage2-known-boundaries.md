@@ -25,11 +25,11 @@
 
 | 编号 | 边界 | 当前事实与证据 | 影响 | 后续处理 |
 |---|---|---|---|---|
-| D-01 | 本地 tag 与远程发布 | 已创建本地 annotated tag `stage2-v1.0`；未执行 `git push`，`origin/main` 仍为 `e057d0d`，未创建 GitHub Release | 远程仓库无法直接取得阶段二版本 | 明确授权后推送 commit 与 tag，核对远程 tag，再写 Release 说明 |
-| D-02 | 阶段二 PR 与同伴评审 | 阶段二在本地 `main` 纵向提交，无 GitHub PR、无同伴评审；`docs/pr-log.md` 已记录偏差 | 缺少外部评审证据 | 推送后按增量创建 PR，邀请同伴评审；若截止前无法完成，保留偏差说明，不伪造 |
+| D-01 | tag 与远程发布 | 已创建并推送 annotated tag `stage2-v1.0`；远程分支含阶段二提交；未创建 GitHub Release | 可通过远程 tag 获取阶段二版本，Release 说明仍缺失 | 补 GitHub Release 说明；tag 无覆盖复跑与演示材料仍按 D-03/D-04 处理 |
+| D-02 | 阶段二 PR 与同伴评审 | 阶段二已在 `main` 纵向提交并推送，但无 GitHub PR、无同伴评审；`docs/pr-log.md` 已记录偏差 | 缺少外部评审证据 | 按增量创建 PR，邀请同伴评审；若截止前无法完成，保留偏差说明，不伪造 |
 | D-03 | tag 无覆盖复跑 | 当前只有 S10 临时快照彩排；从 `stage2-v1.0` 的无覆盖完整复跑尚未执行 | 正式 S10 “tag 指向可复现提交”的证据仍不完整 | 从 tag 克隆到干净目录，按 README 构建/启动，复跑核心链路、15 题、Workflow E2E/UI 和异常路径，留痕 |
 | D-04 | 演示与汇报材料 | 架构图、≤3 分钟 Workflow 录屏尚未生成；一页汇报单和 8 分钟脚本已生成；若计划要求 PPT/大纲，尚未单独制作 | 材料不齐，可能影响汇报 | 补架构图、Workflow 录屏和 PPT/大纲；按计划截止时间提交，发送动作由用户完成 |
-| D-05 | 最终版本说明 | `docs/release-tag.md` 记录本地 tag 状态，但无法在 tag 指向的提交内写入自身 commit hash | 远程发布信息仍需人工核对 | 推送后补充 tag 对象/commit 校验命令与 Release 链接；不伪造远程状态 |
+| D-05 | 最终版本说明 | `docs/release-tag.md` 已记录本地 tag 与远程推送状态，但 tag 指向的提交内无法写入其后的文档状态提交 hash | 版本说明与 Release 链接仍需人工核对 | 补充 tag 对象/commit 校验结果与 Release 链接；不伪造远程状态 |
 
 ## 3. 后续阶段，不属于阶段二 P0
 

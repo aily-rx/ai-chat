@@ -147,9 +147,9 @@ PR #1 合并后，`zhongBY526` 补充 3 条行内评审意见，已在 `9ae78fb`
 
 ## 阶段二变更与评审记录（2026-11-24 至 2026-11-26）
 
-> 状态说明：阶段二功能在**本地 `main`** 纵向提交；2026-11-26 已获授权提交增量并创建本地 annotated tag `stage2-v1.0`。尚未推送，`origin/main` 仍为阶段一后的更名提交 `e057d0d`；本机 `gh` CLI 不可用，因此没有阶段二 GitHub PR、PR 链接或同伴评审意见可记录。本节只记录真实提交、自审结果与偏差，不伪造 PR。
+> 状态说明：阶段二功能在 `main` 纵向提交；2026-11-26 已获授权提交增量、创建 annotated tag `stage2-v1.0`，并将 `main` 与 tag 推送到 `origin`。GitHub Release 尚未创建；本机 `gh` CLI 不可用，因此没有阶段二 GitHub PR、PR 链接或同伴评审意见可记录。本节只记录真实提交、自审结果与偏差，不伪造 PR。
 
-### 阶段二提交（本地 main，`e057d0d..HEAD`）
+### 阶段二提交（`e057d0d..d161bd8`，已推送）
 
 | Commit | 内容 |
 |---|---|
@@ -170,7 +170,7 @@ PR #1 合并后，`zhongBY526` 补充 3 条行内评审意见，已在 `9ae78fb`
 | `8dd4553` | S9 文档、数据清单与四批回归收口 |
 | `0c6a580` | S9 提交后本地临时克隆冒烟 |
 
-本次最终提交已纳入的 FR-10 / FR-13 增量（包含在本地 `stage2-v1.0` 指向提交中）：
+本次最终提交已纳入的 FR-10 / FR-13 增量（包含在 `stage2-v1.0` 指向提交中）：
 
 - FR-10 驳回回退：`RETRYING` 状态、`retryCount`、后端后台重新生成、前端驳回意见与轮询；
 - FR-13 导出引用列表：Workflow 视图 `citations`、Markdown/DOCX 引用列表与确认记录、引用空状态；
@@ -188,15 +188,15 @@ PR #1 合并后，`zhongBY526` 补充 3 条行内评审意见，已在 `9ae78fb`
 | W4 页面彩排 | RAG 问答/引用通过；Workflow 发起→WAITING_CONFIRM→修改通过→SUCCEEDED→实际下载；两次驳回→REJECTED，导出 5006 | `logs/regression/20261126-w4/ui-*.json`、`ui-download/` |
 | S10 干净环境彩排（临时快照） | 干净克隆 HEAD + 当前工作区覆盖；104/104、前端 38 modules、RAG B 15 题 PASS、Workflow 17/17、异常映射通过；非 tag 可复现 | `logs/regression/20261126-s10/` |
 | 密钥与数据安全 | `.env` 未跟踪；无真实 Key；`data/docs/`、真实评测导出未入库 | S9/FR-13 回归静态检查 |
-| 提交/标签/推送 | FR-10/FR-13 已提交；本地 annotated tag `stage2-v1.0` 已创建；未 push | `git log`、`git tag -n` |
+| 提交/标签/推送 | FR-10/FR-13 已提交；annotated tag `stage2-v1.0` 已创建；`main` 与 tag 已推送 `origin`；GitHub Release 未创建 | `git log`、`git tag -n`、`git ls-remote` |
 | 同伴评审 | **未完成**：阶段二无 GitHub PR，未收到同伴评审意见 | 本记录即偏差说明 |
 
 ### 偏差与补做计划
 
-- **偏差 1：未创建阶段二 PR。** 远程 `origin/main` 停在 `e057d0d`，阶段二在本地 `main` 直接提交；没有可评审的 PR diff，也没有 PR 评论链接。不能把阶段一 PR #1–#5 的评审记录复用为阶段二评审。
+- **偏差 1：未创建阶段二 PR。** 阶段二提交先累积在 `main`，随后整体推送；没有独立源分支与可评审的 PR diff，也没有 PR 评论链接。不能把阶段一 PR #1–#5 的评审记录复用为阶段二评审。
 - **偏差 2：无阶段二同伴评审。** 不伪造评审人、评论或 `Approve`；W4 材料中如实标注。
-- **偏差 3：`stage2-v1.0` 仅本地创建，尚未完成 tag 无覆盖复跑。** 2026-11-26 已提交 FR-10/FR-13 与 W4/S10 材料并创建本地 annotated tag；S10 临时快照已通过，但正式 tag clone 复跑、远程推送和 Release 未执行，不能把本地 tag 等同于远程交付完成。
-- **补做计划**：① 明确授权后推送本地 `main` 与 `stage2-v1.0`；② 推送后按增量创建 PR，邀请 `zhongBY526` 做交叉评审并逐条回复，或保留偏差记录；③ 从 `stage2-v1.0` 做无覆盖克隆，补跑构建、启动、上传临时库、RAG 15 题、Workflow E2E/UI、导出和异常路径；④ 生成 ≤3 分钟 Workflow 录屏与架构图，完成 8 分钟人工走台；⑤ 远程状态更新后补 Release 说明。所有未完成项见 `docs/stage2-known-boundaries.md`。
+- **偏差 3：`stage2-v1.0` 已推送，但尚未完成 tag 无覆盖复跑。** 2026-11-26 已提交 FR-10/FR-13 与 W4/S10 材料、创建 annotated tag，并推送 `main` 与 tag；S10 临时快照已通过，但正式 tag clone 复跑与 GitHub Release 未执行，不能把推送等同于完整交付。
+- **补做计划**：① 2026-11-26 已完成推送 `main` 与 `stage2-v1.0`，并核对远程引用；② 创建阶段二 PR，邀请 `zhongBY526` 做交叉评审并逐条回复，或保留偏差记录；③ 从 `stage2-v1.0` 做无覆盖克隆，补跑构建、启动、上传临时库、RAG 15 题、Workflow E2E/UI、导出和异常路径；④ 生成 ≤3 分钟 Workflow 录屏与架构图，完成 8 分钟人工走台；⑤ 补 GitHub Release 说明。所有未完成项见 `docs/stage2-known-boundaries.md`。
 
 ### 已知限制（与评审相关）
 
@@ -204,4 +204,4 @@ PR #1 合并后，`zhongBY526` 补充 3 条行内评审意见，已在 `9ae78fb`
 - 17 条资料来源 URL 待补录，不编造链接。
 - BC-02（低相关引用）与 BC-03（A 库切分过细）仍待优化，均已在评测报告如实记录。
 - 2026-11-26 已完成 headless Chrome 页面彩排：RAG 引用卡片、Workflow 发起/修改通过、实际下载（MD/DOCX）与两次驳回均正常；Workflow UI 不渲染引用卡片，引用以视图 API 与导出文件为准。汇报前仍建议人工快速走一遍，确认投屏布局与浏览器下载行为。
-- 完整功能、数据、验证与交付边界见 `docs/stage2-known-boundaries.md`；本地 `stage2-v1.0` 不等同于已推送或已通过 tag 无覆盖复跑。
+- 完整功能、数据、验证与交付边界见 `docs/stage2-known-boundaries.md`；`stage2-v1.0` 已推送，但不等同于已通过 tag 无覆盖复跑。

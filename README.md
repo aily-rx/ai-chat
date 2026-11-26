@@ -1,6 +1,6 @@
 # ai-chat
 
-「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互、15 题 A/B 评测，以及带格式/术语校验、工具兜底与人工确认导出的 Dify Workflow；S9 已完成文档、DSL、数据清单与四批回归收口，W4 最终评测与汇报材料已生成，S10 干净环境彩排在临时快照通过；本地 annotated tag `stage2-v1.0` 已创建，远程推送/Release 待授权，已知边界见 `docs/stage2-known-boundaries.md`。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互、15 题 A/B 评测，以及带格式/术语校验、工具兜底与人工确认导出的 Dify Workflow；S9 已完成文档、DSL、数据清单与四批回归收口，W4 最终评测与汇报材料已生成，S10 干净环境彩排在临时快照通过；`main` 与 annotated tag `stage2-v1.0` 已推送 `origin`，GitHub Release 尚未创建，已知边界见 `docs/stage2-known-boundaries.md`。
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
@@ -8,9 +8,9 @@
 |---|---|
 | GitHub | https://github.com/aily-rx/ai-chat |
 | 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
-| 阶段二交付 tag | `stage2-v1.0`（2026-11-26 本地 annotated tag；包含 FR-10/FR-13、W4/S10 材料和已知边界；远程推送/Release 待授权；需求见根目录 `docs/07-阶段二需求文档.md`） |
+| 阶段二交付 tag | `stage2-v1.0`（2026-11-26 annotated tag，已推送 `origin`；包含 FR-10/FR-13、W4/S10 材料和已知边界；GitHub Release 未创建；需求见根目录 `docs/07-阶段二需求文档.md`） |
 | 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库；S7/S8 Workflow：前端 → Spring Boot → Dify Workflow → 后端格式/术语工具 → human_input 人工确认 → Markdown/DOCX 导出 |
-| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S9 已完成（S7 双路径/工具兜底、S8 暂停确认/导出、S9 文档/DSL/数据清单/四批回归均通过）；S10 前已补齐 FR-10 驳回回退（最多重试 1 次）与 FR-13 导出引用列表；W4 最终评测（A/B 均 10/10 命中、5/5 拒答、10/10 引用完整）与汇报材料已完成；S10 临时快照彩排通过（104/104、前端构建、RAG 15 题、Workflow 17/17）；本地 `stage2-v1.0` 已创建，tag 无覆盖完整复跑与远程推送/Release 仍待后续 |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S9 已完成（S7 双路径/工具兜底、S8 暂停确认/导出、S9 文档/DSL/数据清单/四批回归均通过）；S10 前已补齐 FR-10 驳回回退（最多重试 1 次）与 FR-13 导出引用列表；W4 最终评测（A/B 均 10/10 命中、5/5 拒答、10/10 引用完整）与汇报材料已完成；S10 临时快照彩排通过（104/104、前端构建、RAG 15 题、Workflow 17/17）；`main` 与 `stage2-v1.0` 已推送 `origin`；tag 无覆盖完整复跑与 GitHub Release 仍待后续 |
 
 ## 一、功能与请求链路
 
@@ -283,7 +283,7 @@ git checkout main
 git pull --ff-only
 ```
 
-阶段一历史快照仍可通过 `stage1-v1.4` tag 查看；阶段二本地 `stage2-v1.0` 已创建，tag 无覆盖克隆彩排、远程推送和 Release 仍待后续；S10 临时快照彩排见 `docs/stage2-tech-validation.md` 第 19 节，已知边界见 `docs/stage2-known-boundaries.md`。S9 收口后的阶段二代码位于默认分支。
+阶段一历史快照仍可通过 `stage1-v1.4` tag 查看；阶段二 `stage2-v1.0` 已推送 `origin`，tag 无覆盖克隆彩排和 GitHub Release 仍待后续；S10 临时快照彩排见 `docs/stage2-tech-validation.md` 第 19 节，已知边界见 `docs/stage2-known-boundaries.md`。S9 收口后的阶段二代码位于默认分支。
 
 ### 6.2 启动后端
 
@@ -593,7 +593,7 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 
 阶段二截至当前尚未完成：
 
-- 阶段二同伴评审/PR（无推送与 PR 授权，已记录偏差）；本地 `stage2-v1.0` 已创建，但 tag 无覆盖克隆彩排、远程推送/Release、≤3 分钟 Workflow 录屏与架构图仍待完成。已知边界见 `docs/stage2-known-boundaries.md`。
+- 阶段二同伴评审/PR（已推送 `main` 与 tag，但尚未创建 PR，已记录偏差）；`stage2-v1.0` 已推送 `origin`，但 tag 无覆盖克隆彩排、GitHub Release、≤3 分钟 Workflow 录屏与架构图仍待完成。已知边界见 `docs/stage2-known-boundaries.md`。
 
 已知限制：
 
