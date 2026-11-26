@@ -75,6 +75,7 @@ S9 结束后记录一次执行复盘，与本文件一起观察这些约束是�
 - 证据目录：`logs/regression/20261126-1441/`（`summary.txt`、`static.log`、`backend-test.log`、`frontend-build.log`、`e2e.json`、`consistency.json` 等）。
 - 四批回归完成时统计：工具调用 113 次（Read 13、Bash 70、Edit 30），0 次请求用户操作，未逆向 Dify 控制台，未执行无变化重复尝试；相比 S8 记录的 298 次工具调用明显收敛。
 - 开始时由用户手动 `/compact`；S9 执行期间未观察到新的自动压缩。
+- 提交后本地临时克隆冒烟：从 `8dd4553` 克隆，后端 `/api/health` HTTP 200、前端 `npm ci`/build/dev 均通过，克隆工作区 clean，`.env` 未被跟踪。
 - 提交/克隆彩排的调用不计入上述 113 次；详细证据仍以日志目录为准。
 
 ### 7.2 遇到的问题与处理
