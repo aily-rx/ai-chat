@@ -1,4 +1,6 @@
-# Dify Workflow DSL（S7/S8）
+# Dify Workflow DSL（S7/S8/S9）
+
+> S9 最终交付口径：以 `official-doc-workflow-s8.yml` 为最终 DSL，`s8-v1.0` 为验收发布版本。S9 不复制 S9 DSL、不修改工作流，也不新增发布；导入和占位符替换仍按本文执行。
 
 ## 版本记录
 

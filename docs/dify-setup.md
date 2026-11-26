@@ -96,20 +96,22 @@ Docker Desktop、WSL 与 Dify 重启后复核：15 个容器运行，`docker-api
   引擎恢复后再执行 `docker compose up -d`。
 - 若 `/console/api/setup` 返回 502，通常是 API 容器还在启动，等待 `docker-api-1` 变为 `healthy` 后重试。
 
-## 阶段二 Workflow（S7，2026-11-25）
+## 阶段二 Workflow（S7/S8，2026-11-25/26）
 
 | 项目 | 值 |
 |---|---|
 | Workflow 应用 | 公文起草与校验-Workflow |
 | App ID | `39259284-937e-41de-b975-a093f8da7a14` |
 | 草稿工作流 ID | `1c83f0f4-7ce1-46f3-91ad-6a33221179ec` |
-| 验收发布版本 | `s7-v1.0-final`（`b6eae619-b334-4fe3-af11-b15863e34f60`） |
+| S7 验收发布版本 | `s7-v1.0-final`（`b6eae619-b334-4fe3-af11-b15863e34f60`） |
+| S8 验收发布版本 | `s8-v1.0`（`83f85623-25f2-4e46-8f77-22d7648ee60d`） |
+| 当前演示使用版本 | `s8-v1.0`，包含 `human_confirm` 人工确认节点 |
 | 依赖插件 | `langgenius/deepseek/deepseek`、`langgenius/siliconflow/siliconflow` |
 | 依赖模型 | `deepseek-v4-flash`、Embedding `Pro/BAAI/bge-m3` |
 | 工具后端 | `http://host.docker.internal:8080/api/format/check`、`/api/terms/check` |
 | 知识库 | B 库；DSL 中数据集 ID 已替换为 `REPLACE_WITH_DATASET_B_ID` |
 
-DSL、节点结构与导入步骤见 `dify/dsl/README.md`。应用服务 API Key 只在后端被 gitignore 的 `.env` 中配置为 `DIFY_WORKFLOW_API_KEY`，不写入本文件。
+DSL、节点结构与导入步骤见 `dify/dsl/README.md`。S8 在 `final_agg` 与 `end` 之间增加 `human-input` 节点 `human_confirm`，支持 `approve/modify/reject`，三个动作都连到 `end`。S9 只做文档和一致性校验，不修改 DSL，也不新增发布版本。应用服务 API Key 只在后端被 gitignore 的 `.env` 中配置为 `DIFY_WORKFLOW_API_KEY`，不写入本文件。
 
 ### SSRF 代理放行
 

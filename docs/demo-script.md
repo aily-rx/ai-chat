@@ -1,10 +1,10 @@
-# 阶段一汇报演示脚本
+# 阶段一/阶段二演示脚本
 
-> 目标：在 8 分钟内完成“Vue 页面 → Spring Boot → DeepSeek 流式返回”、Prompt 变量切换和结构化抽取演示；失败时按备用方案切换。
+> 目标：在 8 分钟内完成阶段一“Vue 页面 → Spring Boot → DeepSeek 流式返回”、Prompt 变量切换和结构化抽取演示；阶段二补充 RAG 问答与公文 Workflow 人工确认/导出演示。失败时按备用方案切换。
 >
-> 提交版本：`stage1-v1.4`（commit `b73d91b`）
+> 阶段一提交版本：`stage1-v1.4`（commit `b73d91b`）；阶段二当前代码在默认分支，`stage2-v1.0` 由 S10 完成彩排后创建。
 >
-> 汇报时间：2026-11-13 14:00；现场演示，不播录屏。
+> 汇报时间：2026-11-13 阶段一现场演示，不播录屏；阶段二演示按第 7 节执行。
 
 ## 0. 8 分钟速查
 
@@ -198,3 +198,71 @@ INFO [xxxxxxxx] [chat-stream-1] ... chat stream completed traceId=xxxxxxxx chars
 cd E:/Dify/dify/docker
 docker compose down
 ```
+
+## 7. 阶段二演示（RAG + Workflow，约 12 分钟）
+
+### 7.1 演示前检查
+
+1. Dify 已启动，`docker-api-1` 为 `healthy`；三个应用可用：`RAG对话`（B）、`RAG对话-A`、`公文起草与校验-Workflow`（发布 `s8-v1.0`）。
+2. 后端根目录 `.env` 已配置 A/B 数据集 ID、`DIFY_APP_API_KEY`、`DIFY_APP_API_KEY_A`、`DIFY_WORKFLOW_API_KEY`；不要投屏 Key。
+3. 后端 8080、前端 5173 已启动；`GET /api/health` 返回 `code=0`。
+4. 前端“知识库问答”和“公文工作流”页均连接真实后端，不用 Mock。
+
+### 7.2 12 分钟速查
+
+| 时间 | 现场动作 | 预期 |
+|---|---|---|
+| 0:00–1:00 | 说明阶段二链路：Vue3 → Spring Boot → Dify → 知识库/Workflow | 主链路与阶段一区分清楚 |
+| 1:00–4:00 | “知识库问答”选 B 库，问“2027年元旦放假几天？” | 逐字输出，引用卡片可定位；答案与资料一致 |
+| 4:00–5:30 | 问资料外问题，再切 A 库重复一次 | 拒答固定话术、空引用；A/B 路由正确 |
+| 5:30–8:30 | “公文工作流”空草稿发起，等待 `WAITING_CONFIRM` | 节点进度、格式/术语校验结果、待确认草稿 |
+| 8:30–10:30 | 修改正文后通过，下载 Markdown/DOCX | `SUCCEEDED`；导出含修改内容和校验摘要 |
+| 10:30–12:00 | 再发起一次并驳回，尝试导出 | `REJECTED`；导出返回 `5006`，不产生文件 |
+
+### 7.3 RAG 问答演示
+
+1. 打开“知识库问答”，选择 B 库。
+2. 提问：`2027年元旦放假几天？`
+3. 观察：逐字输出、引用编号、引用卡片（文档名、段落序号、摘录、分数）、点击编号定位高亮。
+4. 提问资料外问题，例如：`请预测2030年世界杯冠军。`
+5. 预期：固定拒答话术，`citations.items=[]`，不伪造引用。
+6. 切换 A 库，重复一个节日问题，说明后端按 `datasetId` 白名单路由。
+
+说明：RAG 的引用来自 Dify 检索资源；无引用且非拒答时后端按错误处理，不把无依据回答计为成功。
+
+### 7.4 Workflow 人工确认与导出
+
+1. 打开“公文工作流”，任务填写：`起草一份关于开展安全生产检查的通知`，草稿留空。
+2. 点击发起，观察节点进度；等待 SSE 以 `WAITING_CONFIRM` 结束。
+3. 展示格式/术语校验结果和待确认草稿；说明 `form_token` 只在后端保存，前端只拿 `runId`。
+4. 在草稿末尾追加可识别文本，例如 `【演示修改】请各部门于本周五前反馈。`，选择“修改后通过”。
+5. 预期：状态 `SUCCEEDED`，确认历史出现 `WAITING_CONFIRM → SUCCEEDED`。
+6. 下载 Markdown 和 DOCX；打开 DOCX 验证中文、标题、正文和“校验摘要”。
+7. 再发起一次，等待暂停后点击“驳回”；预期 `REJECTED`，导出返回 `5006`。
+8. 说明限制：运行状态在后端内存，暂停后重启后端会丢失；驳回是终态，不自动退回生成节点。
+
+#### 备用命令
+
+```bash
+# 发起（空草稿，真实 Dify）
+curl -sN -X POST http://localhost:8080/api/workflow/run/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"input":"起草一份关于开展安全生产检查的通知","draft":""}'
+
+# 查询、确认、导出；RUN_ID 替换为上一步 done.runId
+curl -s http://localhost:8080/api/workflow/$RUN_ID
+curl -s -X POST http://localhost:8080/api/workflow/$RUN_ID/confirm \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"modify","content":"修改后的正文"}'
+curl -OJ "http://localhost:8080/api/workflow/$RUN_ID/export?format=md"
+```
+
+### 7.5 阶段二风险与兜底
+
+| 风险 | 兜底 |
+|---|---|
+| Dify 未启动/应用未发布 | 展示 `docs/dify-setup.md`、`dify/dsl/README.md` 和 S8 验收记录；不伪造实时结果 |
+| Workflow 生成超时 | 检查 Dify 容器与 `DIFY_WORKFLOW_API_KEY`；展示 `logs/regression/` 下的真实 E2E 证据 |
+| 导出失败 | 先确认状态为 `SUCCEEDED`；未确认/已驳回返回 `5006` 属于预期 |
+| 暂停后误重启后端 | 重新发起任务；内存状态无法恢复，这是已知限制 |
+| 引用为空 | 检查是否拒答、Dify 检索是否命中；不把无引用回答当作成功 |

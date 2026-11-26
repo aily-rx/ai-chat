@@ -66,3 +66,27 @@ S9 结束后记录一次执行复盘，与本文件一起观察这些约束是�
 
 - 不降低 S9/S10 验收标准，不隐藏失败，不伪造证据。
 - 密钥不打印、不提交；真实数据不入库；不执行 `docker compose down -v`。
+
+## 7. S9 执行复盘（2026-11-26）
+
+### 7.1 结果与指标
+
+- 四批回归全部通过：静态检查 PASS；后端 98/98、前端 38 modules、阶段一 health/chat/extract 冒烟 PASS；真实 Workflow E2E 12 步、约 32.5 s PASS；文档/DSL 一致性 8 项 PASS。
+- 证据目录：`logs/regression/20261126-1441/`（`summary.txt`、`static.log`、`backend-test.log`、`frontend-build.log`、`e2e.json`、`consistency.json` 等）。
+- 四批回归完成时统计：工具调用 113 次（Read 13、Bash 70、Edit 30），0 次请求用户操作，未逆向 Dify 控制台，未执行无变化重复尝试；相比 S8 记录的 298 次工具调用明显收敛。
+- 开始时由用户手动 `/compact`；S9 执行期间未观察到新的自动压缩。
+- 提交/克隆彩排的调用不计入上述 113 次；详细证据仍以日志目录为准。
+
+### 7.2 遇到的问题与处理
+
+- 多次出现 Bash 工作目录被重置到项目根目录，导致相对路径找不到；改用绝对路径或显式 `cd`，未重复同一失败命令。
+- 长 Bash here-doc 一次因引号/长度问题失败；改用占位文件 + Edit 写入脚本，未继续围绕同一写法重试。
+- Git Bash 内联中文 curl 请求被 Windows 终端编码破坏，返回 4000；改用 UTF-8 JSON 文件后通过，未修改后端代码。
+- `DIFY_SEPARATOR` 是 `application.yml` 内部可选默认值，未进入 `.env.example`；一致性脚本明确记为告警而非失败，避免为了“全绿”而伪造变量。
+
+### 7.3 是否遵守约束
+
+- 没有把常规构建、测试、curl、Dify 启动或日志检查交给用户；Docker Desktop 与 Dify 均通过 CLI 启动。
+- 没有为通过检查而降低验收标准、隐藏失败或补写未实际执行的证据。
+- 已知 FR-10、FR-13、OpenAPI 和 17 条来源 URL 差异均如实记录，没有临时改功能或编造来源。
+- S9 未打 `stage2-v1.0` tag，未 push，未提交密钥或真实资料。

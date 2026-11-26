@@ -1,6 +1,6 @@
-# 阶段二技术验证记录（S0–S8）
+# 阶段二技术验证记录（S0–S9）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）；S7 Dify Workflow、格式/术语工具、条件分支和工具超时兜底已完成并通过双路径验收（2026-11-25）；S8 人工确认、状态查询、Markdown/DOCX 导出与前端流程页已完成并通过真实 Dify 闭环验收（2026-11-25）
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）；S7 Dify Workflow、格式/术语工具、条件分支和工具超时兜底已完成并通过双路径验收（2026-11-25）；S8 人工确认、状态查询、Markdown/DOCX 导出与前端流程页已完成并通过真实 Dify 闭环验收（2026-11-25）；S9 文档、DSL、数据清单与四批回归已完成（2026-11-26）
 > 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S8；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
@@ -414,3 +414,89 @@ S7 通过（2026-11-25）。格式/术语工具、Dify Workflow、后端 SSE 代
 ### 14.5 验收结论
 
 S8 通过（2026-11-25）。真实链路完成“发起 → 工具校验 → 待确认 → 修改 → 确认 → 导出 Markdown/DOCX”，并验证驳回、未确认导出、非法动作、重复确认与过期/未知 run；无未处理 500。全量后端测试 98/98 通过。
+
+## 15. S9 文档、DSL、数据清单与四批回归（2026-11-26）
+
+### 15.1 范围与原则
+
+- 本阶段不新增业务功能、不修改 S8 工作流、不新增 Dify 发布版本、不打 `stage2-v1.0` tag。
+- 只做工程化收口：文档/API 契约、DSL 说明、数据清单、演示脚本、验证记录、回归脚本与证据。
+- 回归按四批执行：静态检查、构建测试、真实 Workflow E2E、文档/DSL 一致性；完整日志在 `logs/regression/20261126-1441/`（已 gitignore），本文只记录摘要。
+- 不引入 springdoc；接口契约以 README + `docs/api.md` 的 Markdown/curl/SSE 示例为准，并由静态一致性脚本检查路径、环境变量、错误码和链接。
+
+### 15.2 文档与数据变更
+
+- `README.md`：状态更新到 S9；补齐 `DIFY_WORKFLOW_API_KEY`、`DIFY_WORKFLOW_TIMEOUT_SECONDS`、轮询/超时/分段等环境变量；补充 OpenAPI 选择、FR-10/FR-13 差异与数据来源状态；克隆说明改为默认分支，`stage2-v1.0` 留给 S10。
+- `docs/api.md`：升级 v2.0，补充知识库上传/列表、RAG SSE、格式/术语检查、Workflow 运行/状态/确认/导出、状态机与 5002–5006；阶段二测试清单。
+- `docs/dataset-manifest.md`：从 PDF 内嵌链接提取并核实 3 条中国政府网 PDF 来源（HTTP 200）；其余 17 条保留“URL 待补录”，不编造。
+- `docs/demo-script.md`：新增阶段二 RAG 与 Workflow 的 12 分钟演示、备用命令和风险兜底。
+- `docs/dify-setup.md`、`docs/skills/official-doc-format.md`、`dify/dsl/README.md`：补充 S8/S9 版本与最终 DSL 口径，明确 S9 不复制重复 DSL。
+- `scripts/regression/workflow_e2e.py`、`scripts/regression/check_docs_consistency.py`：新增可重复执行的真实验收和静态一致性检查脚本。
+
+### 15.3 批次 1：静态检查
+
+| 项目 | 结果 |
+|---|---|
+| `git status --short` / `git diff --check` | 通过；`core.whitespace=cr-at-eol`，无空白错误 |
+| `.env` 是否被跟踪 | 未被跟踪 |
+| 真实资料/评测导出是否被跟踪 | `data/docs/` 未被跟踪；`data/eval/` 仅保留脱敏 15 题夹具 `questions.json`，其余忽略 |
+| 跟踪文件密钥扫描 | 未发现 `sk-*`/`app-*`/Bearer 真实 Key 模式 |
+| `stage2-v1.0` tag | 不存在（S10 创建） |
+| 3 条新增来源 URL | 均返回 HTTP 200 |
+| 过期状态文字 | 已清理 README 的“下一步 S9/S10”“阶段二截至 S8 尚未完成”等 |
+
+### 15.4 批次 2：构建、测试与阶段一冒烟
+
+| 项目 | 结果 |
+|---|---|
+| 后端全量测试 | `mvn -f backend/pom.xml clean test`：**98/98 通过，0 failure / 0 error / 0 skipped**，`BUILD SUCCESS` |
+| 前端构建 | `npm run build`：通过，38 modules transformed，`dist` 正常生成 |
+| `/api/health` | HTTP 200，`code=0` |
+| `/api/extract` | 正常样例返回五字段，`code=0`，中文未乱码 |
+| `/api/chat/stream` | UTF-8 请求文件（避免 Windows shell 编码问题）返回 21 个 `message` + 1 个 `done`，无 error |
+
+### 15.5 批次 3：真实 Workflow E2E
+
+前置：Dify 1.19.0 已启动，`docker-api-1` 可用；后端 8080；`.env` 已配置真实 Workflow Key（未打印、未提交）。脚本 `scripts/regression/workflow_e2e.py` 串行执行 12 步：
+
+| 步骤 | 结果 |
+|---|---|
+| 空草稿真实生成并暂停 | `done.status=WAITING_CONFIRM`，31 个 node、1 个 message；runId `8cf6e28a-415c-4ac1-9976-aa3dd50e03c8` |
+| 查询状态 | `WAITING_CONFIRM`，草稿 1054 字，响应不含 `formToken`/`form_token` |
+| 非法 action | `code=5005`，HTTP 200，无未处理 500 |
+| `modify` 并追加唯一标记 | `status=SUCCEEDED` |
+| 导出 Markdown | 3357 字节，`text/markdown;charset=UTF-8`，含唯一标记 |
+| 导出 DOCX | 4144 字节；`zipfile` 读取 `word/document.xml`，XML 可解析，含唯一标记与“校验摘要”，中文未乱码 |
+| 新 run 未确认导出 | `code=5006` |
+| `reject` | `status=REJECTED` |
+| 驳回后导出 | `code=5006` |
+| 重复确认 | `code=5005` |
+| 未知 run 导出 | `code=5006` |
+| 不支持格式 `pdf` | `code=5006` |
+
+- 总耗时约 32.5 s；证据：`logs/regression/20261126-1441/e2e/e2e.json`、`export.md`、`export.docx`。
+- 运行状态保存在后端内存；脚本执行后不重启后端，临时运行记录随进程结束清理。
+
+### 15.6 批次 4：文档/DSL 一致性
+
+`scripts/regression/check_docs_consistency.py` 的 8 项检查均通过：
+
+- 控制器路径全部出现在 README 与 `docs/api.md`；
+- `.env.example`、`application.yml`、README 环境变量表一致（`DIFY_SEPARATOR` 为内部可选默认值，单独告警）；
+- `ErrorCodes` 的 4000/5001–5006 与 `5000` 均出现在 API 文档；
+- S8 DSL 含 `human-input`、`human_confirm`、`REPLACE_WITH_DATASET_B_ID`，不含真实数据集 ID、Key 或 Bearer；
+- 数据清单 20 行、A 229 段、B 138 段、17 条待补录 URL；
+- README/API 文档相对链接有效；
+- README 状态已更新到 S9，无过期 S9/S10 文字；
+- 跟踪文件不含 `.env`、真实资料或评测导出（15 题夹具例外已记录）。
+
+### 15.7 已知差异与未完成项
+
+- **FR-10**：需求要求驳回后回退生成节点并最多重试 1 次；当前实现为 `REJECTED` 终态，重新发起任务。S9 未改功能，记录为已知差异。
+- **FR-13**：需求提到导出含引用列表；当前导出含正文、格式/术语摘要和确认结果，不含知识检索引用列表。S9 未改功能，记录为已知差异。
+- **来源 URL**：17 条待用户按文件名补充；补齐后可用 `scripts/dify/import_datasets.py --source-map` 重新生成清单。
+- **S10**：干净环境彩排、15 题最终评测复核、汇报材料与 `stage2-v1.0` tag。
+
+### 15.8 验收结论
+
+S9 通过（2026-11-26）。文档、API 契约、DSL 说明、数据清单、演示与验证记录已收口；98/98 后端测试、前端构建、阶段一 health/chat/extract 冒烟和真实 Workflow 12 步 E2E 均通过；5005/5006 无未处理 500；8 项文档/DSL 一致性检查通过。未打 tag、未 push、未提交密钥或真实资料。

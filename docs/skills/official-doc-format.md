@@ -161,7 +161,7 @@
 
 ## 6. Dify Workflow 中的调用约定
 
-已发布工作流：`公文起草与校验-Workflow`。
+已发布工作流：`公文起草与校验-Workflow`，当前验收版本 `s8-v1.0`（含 `human_confirm` 人工确认节点）。S9 只核对本文与实现/DSL 的一致性，不改变工具契约。
 
 1. 开始节点接收 `task`、`draft`、`title`、`doc_type`、`recipient`、`signature`、`date`。
 2. 若 `draft` 为空，先做知识检索并生成草稿；非空时跳过生成。

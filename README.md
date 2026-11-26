@@ -1,6 +1,6 @@
 # ai-chat
 
-「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互、15 题 A/B 评测，以及带格式/术语校验、工具兜底与人工确认导出的 Dify Workflow；下一步 S9/S10 文档与交付收口。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互、15 题 A/B 评测，以及带格式/术语校验、工具兜底与人工确认导出的 Dify Workflow；S9 已完成文档、DSL、数据清单与四批回归收口，下一步 S10 干净环境彩排、最终材料和 `stage2-v1.0` 标签。
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
@@ -10,7 +10,7 @@
 | 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
 | 阶段二交付 tag | `stage2-v1.0`（开发中；需求见根目录 `docs/07-阶段二需求文档.md`） |
 | 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库；S7/S8 Workflow：前端 → Spring Boot → Dify Workflow → 后端格式/术语工具 → human_input 人工确认 → Markdown/DOCX 导出 |
-| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S8 已完成（S7 双路径/工具兜底、S8 暂停确认/驳回/导出均通过真实链路验收），下一步 S9/S10 工程化收口与 `stage2-v1.0` |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S9 已完成（S7 双路径/工具兜底、S8 暂停确认/驳回/导出、S9 文档/DSL/数据清单/四批回归均通过），下一步 S10 干净环境彩排与 `stage2-v1.0` |
 
 ## 一、功能与请求链路
 
@@ -89,10 +89,10 @@ npm -v
 ```text
 ai-chat/
 ├─ frontend/                         # Vue3 + Vite
-│  ├─ src/api/                       # chat / extract / health / kb / rag 请求封装
+│  ├─ src/api/                       # chat / extract / health / kb / rag / workflow 请求封装
 │  ├─ src/components/                # 消息、输入框、引用卡片、抽取结果等组件
-│  ├─ src/composables/               # useChatStream.js / useRagChat.js，SSE 状态管理
-│  ├─ src/views/                     # 聊天页、知识库页、RAG 问答页、结构化抽取页
+│  ├─ src/composables/               # useChatStream / useRagChat / useWorkflow，SSE 状态管理
+│  ├─ src/views/                     # 聊天页、知识库页、RAG 问答页、抽取页、公文工作流页
 │  ├─ src/mock/                      # 无后端时的演示数据
 │  ├─ .env.example                   # VITE_API_BASE_URL / VITE_USE_MOCK
 │  ├─ vite.config.js                 # 5173 端口 + /api 代理到 8080
@@ -102,6 +102,8 @@ ai-chat/
 │  │  ├─ chat/                       # /api/chat/stream
 │  │  ├─ kb/                         # /api/kb/documents
 │  │  ├─ rag/                        # /api/rag/chat/stream、Dify 流式客户端、引用映射
+│  │  ├─ workflow/                   # /api/workflow/*、状态机、人工确认、Markdown/DOCX 导出
+│  │  ├─ check/                      # /api/format/check、/api/terms/check
 │  │  ├─ extract/                    # /api/extract
 │  │  ├─ health/                     # /api/health
 │  │  ├─ llm/                        # DeepSeek 调用封装
@@ -112,9 +114,12 @@ ai-chat/
 │  ├─ src/main/resources/application.yml
 │  ├─ src/main/resources/prompts/    # chat-system.txt / extract-fields.txt
 │  └─ pom.xml
+├─ dify/dsl/                          # S7/S8 Workflow DSL 与导入说明
+├─ scripts/                           # Dify 导入、S6 评测、S9 回归脚本
 ├─ prompts/                          # 3 个 Prompt 样例
 ├─ docs/                             # 接口、测试、Dify、PR、演示文档
 ├─ notes/                            # 学习笔记
+├─ logs/                             # 本地回归/运行日志（已 gitignore）
 ├─ .env.example                      # 后端环境变量样例
 ├─ .gitignore
 └─ README.md
@@ -178,11 +183,21 @@ DIFY_DATASET_API_KEY=
 DIFY_DEFAULT_DATASET_ID=
 DIFY_DATASET_A_ID=
 DIFY_DATASET_B_ID=
+DIFY_POLL_INTERVAL_MS=2000
+DIFY_POLL_TIMEOUT_MS=180000
+DIFY_CONNECT_TIMEOUT_SECONDS=10
+DIFY_REQUEST_TIMEOUT_SECONDS=60
+DIFY_MAX_TOKENS=800
+DIFY_CHUNK_OVERLAP=100
 
 # Dify Service API（应用范围；RAG 问答。B 应用默认，A 应用单独配置）
 DIFY_APP_API_KEY=
 DIFY_APP_API_KEY_A=
 DIFY_CHAT_TIMEOUT_SECONDS=120
+
+# Dify Service API（Workflow 应用；S7/S8 公文工作流）
+DIFY_WORKFLOW_API_KEY=
+DIFY_WORKFLOW_TIMEOUT_SECONDS=120
 ```
 
 > Dify 两类 Key 都由本地后端 `.env` 注入，禁止提交或写入前端。真实数据集 ID 可写入清单，但真实 Key 不得出现在文档、日志、脚本或对话记录中。
@@ -202,6 +217,14 @@ DIFY_CHAT_TIMEOUT_SECONDS=120
 | `DIFY_APP_API_KEY` | RAG 必填 | 无 | B 应用 `RAG对话` 的 Service API Key |
 | `DIFY_APP_API_KEY_A` | A 库问答必填 | 无 | A 应用 `RAG对话-A` 的 Service API Key |
 | `DIFY_CHAT_TIMEOUT_SECONDS` | 否 | `120` | RAG 流式请求超时；与 SSE 120s 对齐 |
+| `DIFY_POLL_INTERVAL_MS` | 否 | `2000` | 文档索引进度轮询间隔 |
+| `DIFY_POLL_TIMEOUT_MS` | 否 | `180000` | 文档索引轮询超时 |
+| `DIFY_CONNECT_TIMEOUT_SECONDS` | 否 | `10` | Java → Dify 连接超时 |
+| `DIFY_REQUEST_TIMEOUT_SECONDS` | 否 | `60` | 数据集/文档请求超时（不含 RAG/Workflow 流） |
+| `DIFY_MAX_TOKENS` | 否 | `800` | 文档索引分段上限；B 库默认使用 |
+| `DIFY_CHUNK_OVERLAP` | 否 | `100` | 文档索引分段重叠 |
+| `DIFY_WORKFLOW_API_KEY` | Workflow 必填 | 无 | `公文起草与校验-Workflow` 的 Service API Key；不能与数据集/App Key 混用 |
+| `DIFY_WORKFLOW_TIMEOUT_SECONDS` | 否 | `120` | Workflow 请求超时 |
 
 后端由 `application.yml` 通过 `optional:file:./.env` 加载配置，因此推荐在**项目根目录**执行启动命令，并确保 `.env` 位于项目根目录。修改 `.env` 后需要重启后端。
 
@@ -247,16 +270,19 @@ git grep -nE 'sk-[A-Za-z0-9]{20,}' || echo "no real key in tracked files"
 ### 6.1 获取代码
 
 ```bash
-git clone --branch stage1-v1.4 --depth 1 https://github.com/aily-rx/ai-chat.git
+git clone --depth 1 https://github.com/aily-rx/ai-chat.git
 cd ai-chat
 ```
 
-已有仓库则切换到最终 tag：
+已有仓库则更新默认分支：
 
 ```bash
-git fetch --tags
-git checkout stage1-v1.4
+git fetch origin
+git checkout main
+git pull --ff-only
 ```
+
+阶段一历史快照仍可通过 `stage1-v1.4` tag 查看；`stage2-v1.0` 将在 S10 完成干净环境彩排后创建。S9 收口后的阶段二代码位于默认分支。
 
 ### 6.2 启动后端
 
@@ -352,6 +378,8 @@ docker compose down
 | `POST` | `/api/workflow/{runId}/confirm` | 人工确认，`action=approve/modify/reject` |
 | `GET` | `/api/workflow/{runId}/export` | 导出已确认公文，`format=md`（默认）或 `docx` |
 | `POST` | `/api/chat` | 阶段一未实现（可选调试接口） |
+
+> 接口契约以本 README 与 [接口文档](docs/api.md) 的 Markdown、curl 和 SSE 示例为准。本项目为本地单用户演示，不引入 springdoc，也不维护单独的 OpenAPI YAML；S9 用脚本校验控制器路径、环境变量、错误码与文档一致性。
 
 ### 7.1 健康检查
 
@@ -551,16 +579,21 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 
 阶段二 S8 已完成（2026-11-25）：`human_input` 暂停、状态查询、修改/通过/驳回、Markdown/DOCX 导出与前端流程页均通过真实 Dify 链路验收；发布版本 `s8-v1.0`，DSL 见 `dify/dsl/official-doc-workflow-s8.yml`。全量后端测试 98/98 通过。
 
-阶段二截至 S8 尚未完成：
+阶段二 S9 已完成（2026-11-26）：README、接口文档、DSL 说明、数据清单、演示脚本、Dify 部署记录与技能文档已收口；新增 `scripts/regression/workflow_e2e.py` 和 `scripts/regression/check_docs_consistency.py`；四批回归（静态、构建测试、真实 Workflow E2E、文档/DSL 一致性）结果见 `logs/regression/20261126-1441/` 和 `docs/stage2-tech-validation.md` 第 15 节。
 
-- S9 文档、DSL、数据清单与全量回归收口；
-- S10 干净环境彩排、汇报材料与 `stage2-v1.0` 标签。
+阶段二截至 S9 尚未完成：
+
+- S10 干净环境彩排、15 题最终评测复核、汇报材料与 `stage2-v1.0` 标签。
 
 已知限制：
 
 - Workflow 运行状态仅保存在后端内存，重启即清空，不支持多实例共享；
 - 确认提交成功后，后端立即返回 `SUCCEEDED/REJECTED`，Dify 恢复流由 Dify 自行完成，后端不再回读最终节点；
 - 确认过期依赖 Dify `human_input` 节点的 `expiration_time`，当前配置为 1 天；后端会在查询/确认时惰性标记过期。
+- **FR-10 口径差异**：需求提到驳回后回退生成节点并最多重试 1 次；S8 已验收实现为 `reject` 后进入 `REJECTED` 终态，需要重新发起任务，不自动回退。S9 如实记录，不降低验收标准，也不把它伪装成已实现。
+- **FR-13 口径差异**：需求提到导出含引用列表；当前 Markdown/DOCX 导出包含正文、校验摘要和确认结果，不包含知识检索引用列表。知识库问答页仍有引用；导出补引用属于独立功能增量，S9 不临时改功能。
+- **OpenAPI 选择**：本项目为本地单用户演示，接口契约采用 README + `docs/api.md` 的 Markdown/curl/SSE 示例，并由 `check_docs_consistency.py` 校验；不引入 springdoc，不维护独立 OpenAPI YAML。
+- **数据来源**：20 份资料的来源 URL 已从 PDF 内嵌链接确认 3 条，其余 17 条仍标记“URL 待补录”，不编造；补齐后可重新生成清单。
 
 A 策略仍存在少量 5 字碎段，S6 已评估并记录为 badcase（A 库切分过细），后续可合并短段或重导后复测；评测报告未隐去该偏差。
 
@@ -587,7 +620,7 @@ feat(chat): 增加 SSE 流式对话接口
 
 ## 十二、文档索引
 
-- [阶段一接口文档](docs/api.md)
+- [接口文档（阶段一 + 阶段二）](docs/api.md)
 - [前端原型设计](docs/frontend-prototype.md)
 - [联调与性能测试记录](docs/streaming-test.md)
 - [Dify 部署记录](docs/dify-setup.md)
