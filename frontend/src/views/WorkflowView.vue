@@ -15,6 +15,8 @@ const {
   runId,
   traceId,
   documentMeta,
+  retryCount,
+  rejectReason,
   confirmation,
   history,
   error,
@@ -40,12 +42,25 @@ const statusLabels = {
   IDLE: '待发起',
   RUNNING: '运行中',
   WAITING_CONFIRM: '待人工确认',
+  RETRYING: '重新生成中',
   SUCCEEDED: '已通过',
   FAILED: '失败',
   REJECTED: '已驳回',
 }
 
 const activeLabel = computed(() => statusLabels[status.value] || status.value)
+const confirmationTitle = computed(() => {
+  if (status.value === 'REJECTED') {
+    return '已驳回'
+  }
+  if (status.value === 'RETRYING') {
+    return '已驳回，正在重新生成'
+  }
+  if (confirmation.value?.action === 'reject') {
+    return '上次驳回'
+  }
+  return '确认完成'
+})
 const formatResult = computed(() => summarize(toolResults.value?.format, 'format'))
 const termsResult = computed(() => summarize(toolResults.value?.terms, 'terms'))
 
@@ -187,10 +202,15 @@ function formatTime(value) {
         <div class="workflow-status-row">
           <span :class="['status-chip', `status-chip--${status.toLowerCase()}`]">{{ activeLabel }}</span>
           <span v-if="runId" class="mono workflow-meta">runId: {{ runId }}</span>
+          <span v-if="retryCount" class="mono workflow-meta">retryCount: {{ retryCount }}</span>
           <span v-if="traceId" class="mono workflow-meta">traceId: {{ traceId }}</span>
         </div>
 
         <p v-if="error" class="workflow-error" role="alert">{{ error }}</p>
+
+        <p v-if="status === 'RETRYING'" class="workflow-retry-notice" role="status">
+          已驳回，正在按驳回意见重新生成（最多重试 1 次）…
+        </p>
 
         <div v-if="nodes.length" class="workflow-section">
           <h3>节点进度</h3>
@@ -236,6 +256,9 @@ function formatTime(value) {
             <div>
               <h3>人工确认</h3>
               <p class="subtitle">检查草稿后可原稿通过、修改后通过或驳回。未确认不能导出。</p>
+              <p v-if="retryCount > 0" class="subtitle">
+                本次为驳回后重新生成的草稿，再次驳回将直接结束流程。
+              </p>
             </div>
             <span class="status-chip status-chip--waiting_confirm">WAITING_CONFIRM</span>
           </div>
@@ -245,6 +268,16 @@ function formatTime(value) {
             rows="14"
             maxlength="50000"
             aria-label="待确认草稿"
+            :disabled="isBusy"
+          ></textarea>
+          <label class="workflow-label" for="workflow-reject-reason">驳回意见（可选）</label>
+          <textarea
+            id="workflow-reject-reason"
+            v-model="rejectReason"
+            class="workflow-textarea reject-reason-input"
+            rows="2"
+            maxlength="2000"
+            placeholder="例如：请补充检查日期和责任人；首次驳回会作为修改要求用于重新生成"
             :disabled="isBusy"
           ></textarea>
           <div class="confirm-actions">
@@ -270,13 +303,13 @@ function formatTime(value) {
               :disabled="!canConfirm"
               @click="confirm('reject')"
             >
-              驳回
+              {{ retryCount < 1 ? '驳回并重新生成' : '驳回' }}
             </button>
           </div>
         </div>
 
         <div v-if="confirmation" class="workflow-section confirmation-summary">
-          <h3>{{ status === 'REJECTED' ? '已驳回' : '确认完成' }}</h3>
+          <h3>{{ confirmationTitle }}</h3>
           <p>动作：{{ actionLabel(confirmation.action) }} · 时间：{{ formatTime(confirmation.confirmedAt) }}</p>
           <p v-if="documentMeta" class="workflow-meta">
             {{ documentMeta.title }} · {{ documentMeta.docType }} · {{ documentMeta.date }}

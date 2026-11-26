@@ -144,3 +144,64 @@ PR #1 合并后，`zhongBY526` 补充 3 条行内评审意见，已在 `9ae78fb`
 - README 重构后建立 tag `stage1-v1.2`（commit `235ff63`）。
 - 2026-11-12 在 `main` 处理 PR #1 协作评审意见（commit `9ae78fb`），随后建立 tag `stage1-v1.3` 作为修复后代码快照。
 - 补充协作人 PR #4 交叉评审记录后，建立最终交付 tag `stage1-v1.4`；最终交付以 `stage1-v1.4` 指向的 commit 为准。
+
+## 阶段二变更与评审记录（2026-11-24 至 2026-11-26）
+
+> 状态说明：阶段二功能在**本地 `main`** 纵向提交；2026-11-26 已获授权提交增量并创建本地 annotated tag `stage2-v1.0`。尚未推送，`origin/main` 仍为阶段一后的更名提交 `e057d0d`；本机 `gh` CLI 不可用，因此没有阶段二 GitHub PR、PR 链接或同伴评审意见可记录。本节只记录真实提交、自审结果与偏差，不伪造 PR。
+
+### 阶段二提交（本地 main，`e057d0d..HEAD`）
+
+| Commit | 内容 |
+|---|---|
+| `12b8b7a` | S0 技术验证与环境基线 |
+| `4bf782a` | 文档上传与列表纵切（后端） |
+| `1995827` | 接入 Dify 知识库与索引状态轮询 |
+| `3b120d3` | 20 份资料 A/B 入库与切分清单 |
+| `b6a7663` | S4 Dify 应用预检记录 |
+| `cbcfc44` | 前端知识库上传与状态列表 |
+| `121d225` | S3 真实上传验收 |
+| `b197bd8` | A 知识库双应用方案验证 |
+| `6a03cc4` | S4 RAG 流式代理与引用 |
+| `a8950bc` | S5 前端 RAG 问答与引用高亮 |
+| `fb19cc8` | S6 15 题 A/B 评测与 badcase |
+| `cfbb312` | S7 公文 Workflow 与格式/术语工具 |
+| `3d44e92` | S8 人工确认与公文导出 |
+| `34808b0` | S9/S10 协作约束与 S8 复盘 |
+| `8dd4553` | S9 文档、数据清单与四批回归收口 |
+| `0c6a580` | S9 提交后本地临时克隆冒烟 |
+
+本次最终提交已纳入的 FR-10 / FR-13 增量（包含在本地 `stage2-v1.0` 指向提交中）：
+
+- FR-10 驳回回退：`RETRYING` 状态、`retryCount`、后端后台重新生成、前端驳回意见与轮询；
+- FR-13 导出引用列表：Workflow 视图 `citations`、Markdown/DOCX 引用列表与确认记录、引用空状态；
+- 新增 `WorkflowEventCollector.java`、`WorkflowRetryExecutor.java` 及对应测试；后端全量 104/104 通过。
+
+### 自审清单与结果
+
+| 检查项 | 结果 | 证据 |
+|---|---|---|
+| 后端全量测试 | 104/104 通过，0 failure / 0 error / 0 skipped | `logs/regression/20261126-fr13/`、`summary.txt` |
+| 前端构建 | 38 modules 通过 | 同目录回归摘要 |
+| 真实 Workflow E2E | 17/17 步通过，49.6 s（FR-13）；W4 复跑 17/17，78.7 s | `logs/regression/20261126-fr13/e2e/e2e.json`、`logs/regression/20261126-w4/workflow-e2e/e2e.json` |
+| 文档/DSL 一致性 | 8/8 通过；1 条既有 warning（`DIFY_SEPARATOR`） | `consistency/consistency.json` |
+| W4 最终评测 | A/B 均 10/10 命中、5/5 拒答、10/10 引用完整、15/15 SSE | `logs/regression/20261126-w4/live-eval/` |
+| W4 页面彩排 | RAG 问答/引用通过；Workflow 发起→WAITING_CONFIRM→修改通过→SUCCEEDED→实际下载；两次驳回→REJECTED，导出 5006 | `logs/regression/20261126-w4/ui-*.json`、`ui-download/` |
+| S10 干净环境彩排（临时快照） | 干净克隆 HEAD + 当前工作区覆盖；104/104、前端 38 modules、RAG B 15 题 PASS、Workflow 17/17、异常映射通过；非 tag 可复现 | `logs/regression/20261126-s10/` |
+| 密钥与数据安全 | `.env` 未跟踪；无真实 Key；`data/docs/`、真实评测导出未入库 | S9/FR-13 回归静态检查 |
+| 提交/标签/推送 | FR-10/FR-13 已提交；本地 annotated tag `stage2-v1.0` 已创建；未 push | `git log`、`git tag -n` |
+| 同伴评审 | **未完成**：阶段二无 GitHub PR，未收到同伴评审意见 | 本记录即偏差说明 |
+
+### 偏差与补做计划
+
+- **偏差 1：未创建阶段二 PR。** 远程 `origin/main` 停在 `e057d0d`，阶段二在本地 `main` 直接提交；没有可评审的 PR diff，也没有 PR 评论链接。不能把阶段一 PR #1–#5 的评审记录复用为阶段二评审。
+- **偏差 2：无阶段二同伴评审。** 不伪造评审人、评论或 `Approve`；W4 材料中如实标注。
+- **偏差 3：`stage2-v1.0` 仅本地创建，尚未完成 tag 无覆盖复跑。** 2026-11-26 已提交 FR-10/FR-13 与 W4/S10 材料并创建本地 annotated tag；S10 临时快照已通过，但正式 tag clone 复跑、远程推送和 Release 未执行，不能把本地 tag 等同于远程交付完成。
+- **补做计划**：① 明确授权后推送本地 `main` 与 `stage2-v1.0`；② 推送后按增量创建 PR，邀请 `zhongBY526` 做交叉评审并逐条回复，或保留偏差记录；③ 从 `stage2-v1.0` 做无覆盖克隆，补跑构建、启动、上传临时库、RAG 15 题、Workflow E2E/UI、导出和异常路径；④ 生成 ≤3 分钟 Workflow 录屏与架构图，完成 8 分钟人工走台；⑤ 远程状态更新后补 Release 说明。所有未完成项见 `docs/stage2-known-boundaries.md`。
+
+### 已知限制（与评审相关）
+
+- Workflow 运行状态在内存，重启丢失；生产化需持久化。
+- 17 条资料来源 URL 待补录，不编造链接。
+- BC-02（低相关引用）与 BC-03（A 库切分过细）仍待优化，均已在评测报告如实记录。
+- 2026-11-26 已完成 headless Chrome 页面彩排：RAG 引用卡片、Workflow 发起/修改通过、实际下载（MD/DOCX）与两次驳回均正常；Workflow UI 不渲染引用卡片，引用以视图 API 与导出文件为准。汇报前仍建议人工快速走一遍，确认投屏布局与浏览器下载行为。
+- 完整功能、数据、验证与交付边界见 `docs/stage2-known-boundaries.md`；本地 `stage2-v1.0` 不等同于已推送或已通过 tag 无覆盖复跑。

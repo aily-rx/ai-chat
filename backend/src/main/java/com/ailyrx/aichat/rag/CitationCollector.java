@@ -18,6 +18,13 @@ public class CitationCollector {
     static final int MAX_EXCERPT_LENGTH = 500;
 
     public List<CitationItem> collect(List<DifyRetrieverResource> resources) {
+        return collectResources(resources);
+    }
+
+    /**
+     * 无状态映射，供 RAG 问答和 Workflow 导出共用。
+     */
+    public static List<CitationItem> collectResources(List<DifyRetrieverResource> resources) {
         if (resources == null || resources.isEmpty()) {
             return List.of();
         }
@@ -40,7 +47,7 @@ public class CitationCollector {
                 .toList();
     }
 
-    private CitationItem toCitation(DifyRetrieverResource resource) {
+    private static CitationItem toCitation(DifyRetrieverResource resource) {
         if (resource == null
                 || isBlank(resource.documentName())
                 || resource.segmentPosition() == null

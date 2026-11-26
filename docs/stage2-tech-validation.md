@@ -1,6 +1,6 @@
-# 阶段二技术验证记录（S0–S9）
+# 阶段二技术验证记录（S0–S9 及 S10 前增量）
 
-> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）；S7 Dify Workflow、格式/术语工具、条件分支和工具超时兜底已完成并通过双路径验收（2026-11-25）；S8 人工确认、状态查询、Markdown/DOCX 导出与前端流程页已完成并通过真实 Dify 闭环验收（2026-11-25）；S9 文档、DSL、数据清单与四批回归已完成（2026-11-26）
+> 状态：S0 已通过（2026-11-24）；S1 已完成（2026-11-24）；S2 实现与真实数据验收已完成（A/B 各 20 份 completed；来源 URL 待补录，2026-11-25）；S3 前端实现与真实上传验收已完成（2026-11-25）；S4 后端 RAG 流式代理与引用已完成，并通过 B 库 3 题、5 题拒答和 A 库路由冒烟验收（2026-11-25）；S5 前端 RAG 问答、引用定位高亮与拒答/错误态已完成，并通过真实浏览器验收（2026-11-25）；S6 15 题 A/B 两轮评测已完成，命中/拒答/引用完整均达门槛，并记录 3 个 badcase（2026-11-25）；S7 Dify Workflow、格式/术语工具、条件分支和工具超时兜底已完成并通过双路径验收（2026-11-25）；S8 人工确认、状态查询、Markdown/DOCX 导出与前端流程页已完成并通过真实 Dify 闭环验收（2026-11-25）；S9 文档、DSL、数据清单与四批回归已完成（2026-11-26）；S10 前增量 FR-10 驳回回退、FR-13 导出引用列表已完成（2026-11-26）；S10 干净环境彩排已在临时快照通过（2026-11-26，见第 19 节）；已本地提交 FR-10/FR-13 与 W4/S10 材料并创建 annotated tag `stage2-v1.0`（见第 20 节）；远程推送/Release、tag 无覆盖完整复跑与材料收尾仍待后续，边界见 `docs/stage2-known-boundaries.md`
 > 关联：`docs/08-阶段二执行计划.md` v1.1 S0–S8；`docs/07-阶段二需求文档.md` v1.0
 > 安全：本文不记录任何 API Key、密码或完整上游报错堆栈。
 
@@ -429,7 +429,8 @@ S8 通过（2026-11-25）。真实链路完成“发起 → 工具校验 → 待
 - `README.md`：状态更新到 S9；补齐 `DIFY_WORKFLOW_API_KEY`、`DIFY_WORKFLOW_TIMEOUT_SECONDS`、轮询/超时/分段等环境变量；补充 OpenAPI 选择、FR-10/FR-13 差异与数据来源状态；克隆说明改为默认分支，`stage2-v1.0` 留给 S10。
 - `docs/api.md`：升级 v2.0，补充知识库上传/列表、RAG SSE、格式/术语检查、Workflow 运行/状态/确认/导出、状态机与 5002–5006；阶段二测试清单。
 - `docs/dataset-manifest.md`：从 PDF 内嵌链接提取并核实 3 条中国政府网 PDF 来源（HTTP 200）；其余 17 条保留“URL 待补录”，不编造。
-- `docs/demo-script.md`：新增阶段二 RAG 与 Workflow 的 12 分钟演示、备用命令和风险兜底。
+- `docs/demo-script.md`：保留阶段一脚本与阶段二 12 分钟历史版本；W4 现场使用 `docs/demo-script-stage2.md` 的 8 分钟版本。
+- `docs/report-stage2.md`、`docs/learning-notes-stage2.md`、`docs/demo-script-stage2.md`：W4 汇报单、学习笔记与 8 分钟演示脚本，数据来自 2026-11-26 最终评测与 FR-10/FR-13 真实 E2E。
 - `docs/dify-setup.md`、`docs/skills/official-doc-format.md`、`dify/dsl/README.md`：补充 S8/S9 版本与最终 DSL 口径，明确 S9 不复制重复 DSL。
 - `scripts/regression/workflow_e2e.py`、`scripts/regression/check_docs_consistency.py`：新增可重复执行的真实验收和静态一致性检查脚本。
 
@@ -492,8 +493,8 @@ S8 通过（2026-11-25）。真实链路完成“发起 → 工具校验 → 待
 
 ### 15.7 已知差异与未完成项
 
-- **FR-10**：需求要求驳回后回退生成节点并最多重试 1 次；当前实现为 `REJECTED` 终态，重新发起任务。S9 未改功能，记录为已知差异。
-- **FR-13**：需求提到导出含引用列表；当前导出含正文、格式/术语摘要和确认结果，不含知识检索引用列表。S9 未改功能，记录为已知差异。
+- **FR-10**：S9 时实现为 `REJECTED` 终态；S10 前增量已补齐驳回回退与最多 1 次重试，见第 16 节。
+- **FR-13**：S9 时导出不含知识检索引用列表；S10 前增量已补齐视图 `citations` 与 Markdown/DOCX 引用列表、确认记录，见第 17 节。
 - **来源 URL**：17 条待用户按文件名补充；补齐后可用 `scripts/dify/import_datasets.py --source-map` 重新生成清单。
 - **S10**：干净环境彩排、15 题最终评测复核、汇报材料与 `stage2-v1.0` tag。
 
@@ -516,3 +517,187 @@ S8 通过（2026-11-25）。真实链路完成“发起 → 工具校验 → 待
 ### 15.9 验收结论
 
 S9 通过（2026-11-26）。文档、API 契约、DSL 说明、数据清单、演示与验证记录已收口；98/98 后端测试、前端构建、阶段一 health/chat/extract 冒烟和真实 Workflow 12 步 E2E 均通过；5005/5006 无未处理 500；8 项文档/DSL 一致性检查通过；提交后本地临时克隆冒烟通过。未打 tag、未 push、未提交密钥或真实资料。
+
+## 16. FR-10 驳回回退增量（S10 前）
+
+### 16.1 实现方式
+
+需求：驳回回退到生成节点，最多重试 1 次；确认后才允许导出。
+
+S8 的 `human_confirm` 三个动作都直连 `end`，且 `intent` 判断 `start.draft` 非空时跳过检索与生成。为不修改已发布 DSL `s8-v1.0`，FR-10 在后端实现：
+
+1. 首次 `reject`：先向 Dify 提交驳回表单；`WorkflowRunService` 将状态置为 `RETRYING`、`retryCount=1`，由 `WorkflowRetryExecutor` 后台重新调用同一 Workflow。
+2. 重新生成必须清空 `draft`：若把上一版草稿直接作为 `draft` 传入，`intent` 会走“已有草稿”分支，只重跑校验、不重新生成（实测约 1 秒且节点中无 `retrieval`/`draft_llm`）。
+3. 上一版草稿与驳回意见按预算写入 `task`（≤2000 字），强制走“检索 → 草稿生成 → 格式/术语校验 → 人工确认”。
+4. 重新生成暂停后，同一 `runId` 更新草稿、工具结果、节点快照与新的 `form_token`，状态回到 `WAITING_CONFIRM`；客户端轮询获取。
+5. 第二次 `reject` 进入 `REJECTED` 终态，不再重试；重新生成失败或无暂停返回 `FAILED` + `errorCode=5004`。`RETRYING`、`REJECTED`、`FAILED` 均禁止导出。
+6. 前端新增驳回意见输入、`RETRYING` 状态与轮询、第二次确认提示；Dify DSL 与发布版本不变。
+
+局限：这是“重新调用同一 Workflow”的生成回退，不是 Dify 节点级回滚；检索也会重新执行，但用户可观察行为满足“驳回 → 重新生成 → 再次确认”，且重试上限由后端强制。
+
+### 16.2 测试与真实链路
+
+| 项目 | 结果 |
+|---|---|
+| 后端全量测试 | 99/99 通过 |
+| Workflow 聚焦测试 | 4/4 通过（首次驳回 RETRYING、重新生成、二次驳回终态、重试失败 5004） |
+| 前端构建 | 38 modules 通过 |
+| 真实 E2E | `scripts/regression/workflow_e2e.py` 17 步全部通过，66.4 s |
+
+关键证据（`logs/regression/20261126-fr10/e2e-regenerate/e2e.json`）：
+
+| 步骤 | 结果 |
+|---|---|
+| 首次暂停 | `WAITING_CONFIRM`，31 个 node 事件，草稿 1090 字 |
+| 首次驳回（带意见） | `RETRYING`、`retryCount=1`；`RETRYING` 导出 `5006` |
+| 重新生成 | 8.6 s，16 个唯一节点，含 `retrieval`、`draft_llm`、`draft_agg`；新草稿 1707 字 |
+| 驳回意见生效 | 新草稿包含“责任人”“检查日期”相关内容 |
+| 重试后修改确认与导出 | `SUCCEEDED`，Markdown 含唯一标记，5230 字节 |
+| 二次驳回 | `REJECTED`，`retryCount=1`，不再调度重试；导出 `5006` |
+| 重复确认/未知 run/不支持格式 | `5005`/`5006`/`5006`，无未处理 500 |
+
+首次 E2E 版本暴露了“直接传上一版 draft 会跳过生成”的问题；修正后重跑，上述数据来自修正版本。证据文件 `export-retry.md` 含重试后正文；未记录 Key 或 `form_token`。
+
+### 16.3 结论
+
+FR-10 已实现并通过真实 Dify 链路验证；FR-13 引用列表见第 17 节。17 条来源 URL 与 S10 收口仍待完成。
+
+## 17. FR-13 导出引用列表增量（S10 前）
+
+### 17.1 实现方式
+
+需求：导出保留正文、格式/术语校验结果与确认记录，同时附引用列表；Markdown 为 P0，DOCX 同口径。
+
+1. `WorkflowEventCollector` 解析检索节点事件输出 `result`；兼容数组与 `{"value":[...]}` 两种形状，以及 `metadata` 嵌套与顶层字段回退，映射为 `DifyRetrieverResource`。
+2. 复用 RAG 的 `CitationCollector.collectResources` 做统一映射：按 `docId + segmentIndex` 去重并保留高分、按分数降序、空白折叠、摘录上限 500 个 Unicode 码点、缺 `docId` 时使用稳定哈希、`page` 固定 `null`。
+3. `WorkflowRunState` / `WorkflowRunView` 新增 `citations`；首次运行与驳回重试都采集，重试成功时以新检索结果覆盖旧引用。
+4. Markdown/DOCX 新增“引用列表”，条目含文档名、段落序号、相关度与摘录；新增“确认记录”（动作/确认时间/traceId），同时保留正文和格式/术语校验摘要。
+5. 空状态区分“检索未返回片段”和“未执行检索”（直接使用已有草稿），不伪造引用；`segmentIndex` 直接使用检索段落序号，不额外 +1。
+
+### 17.2 测试与真实链路
+
+| 项目 | 结果 |
+|---|---|
+| 后端全量测试 | 104/104 通过 |
+| 新增单元/接口测试 | `WorkflowEventCollectorTest` 3/3（包装/数组、metadata/顶层回退、非法形状）、`WorkflowExportServiceTest` 2/2（两种空状态）、`WorkflowS8ControllerTest` 4/4（视图引用、Markdown/DOCX 引用与确认记录、重试后引用） |
+| 前端构建 | 38 modules 通过（本次未改前端） |
+| 文档/DSL 一致性 | 8/8 通过，1 条既有 warning（`DIFY_SEPARATOR` 未列入 `.env.example`） |
+| 真实 E2E | `scripts/regression/workflow_e2e.py` 17 步全部通过，49.6 s |
+
+关键证据（`logs/regression/20261126-fr13/e2e/e2e.json`、`export.md`、`export.docx`、`export-retry.md`）：
+
+| 步骤 | 结果 |
+|---|---|
+| 首次暂停 | `WAITING_CONFIRM`，31 个 node 事件，草稿 1128 字，视图 `citations=3` |
+| 引用内容 | 3 条按分数降序；首条《国务院关于《国家残疾预防行动计划（2026—2030年）》的批复…》第 2 段，相关度 0.5417，含摘录；全部 `page=null` |
+| Markdown 导出 | `SUCCEEDED` 后 7452 字节，含正文、校验摘要、`## 引用列表`（3 条）与 `## 确认记录`（动作/时间/traceId） |
+| DOCX 导出 | 5978 字节，可解析，含“引用列表”“确认记录”、文档名与摘录；中文未乱码 |
+| 驳回后重新生成 | 回到 `WAITING_CONFIRM`，`retryCount=1`，草稿 1335 字，视图 `citations=3`；引用随新检索更新 |
+| 重试后导出 | Markdown 8763 字节，含新的引用列表与确认记录 |
+| 二次驳回/未确认/未知 run/不支持格式 | `REJECTED`/`5006` 等预期业务码，无未处理 500 |
+
+E2E 断言引用非空、`docId`/`docName`/段号/摘录完整、无重复 `docId+segmentIndex`、摘录 ≤500 字，并检查 Markdown、DOCX 与重试导出中的引用列表和确认记录；视图另核对 `page` 均为 `null`。未记录 Key 或 `form_token`。
+
+### 17.3 结论
+
+FR-13 已实现并通过真实 Dify 链路验证；视图与导出引用同源。剩余为 17 条来源 URL、tag 无覆盖克隆彩排、录屏/架构图材料与远程推送/Release；本地 `stage2-v1.0` 已创建，临时快照彩排见第 19 节，收口状态见第 20 节。
+
+## 18. W4 最终评测与材料（2026-11-26）
+
+### 18.1 最终评测
+
+- 时间：2026-11-26 15:42；链路：真实后端 `/api/rag/chat/stream` → Dify Chatflow → A/B 知识库。
+- 题目：`data/eval/questions.json` 15 题（10 有答案 + 5 无答案），未修改；A/B 各执行 15 次，共 30 次调用。
+- 结果：A/B 均 10/10 命中、5/5 正确拒答、非拒答引用完整 10/10、引用摘录含预期事实 10/10、SSE 协议完整 15/15；HTTP 200 30/30、错误 0。
+- 延迟：平均首字/总耗时 A 2093/2356 ms，B 1618/1896 ms；只记录，不作硬门槛。
+- 无关引用与 A 短段仍存在，和 BC-02/BC-03 一致，未在本轮修改检索或切分参数。
+- 证据：未跟踪目录 `logs/regression/20261126-w4/live-eval/`（`run.log`、`results-{a,b}.jsonl`、`summary-{a,b}.json`、`raw/`）；`docs/stage2-eval-report.md` 第 7 节。
+
+### 18.2 Workflow E2E 复跑
+
+- 2026-11-26 15:52 按 `scripts/regression/workflow_e2e.py` 复跑，17/17 步通过，78.7 s。
+- 首次暂停：31 个节点事件，草稿 872 字，引用 3 条；首条引用第 2 段、score 0.5417。
+- 修改确认：`SUCCEEDED`；Markdown 6699 B、DOCX 5688 B，含引用列表与确认记录，中文正常。
+- 驳回：`RETRYING`、`retryCount=1`；重试后 `WAITING_CONFIRM`，草稿 1301 字、引用 3 条；二次驳回 `REJECTED`。
+- 重复确认 5005；未确认/未知 run/不支持格式 5006；无未处理 500。
+- 生成内容与字节数会随模型输出波动，报告同时保留 FR-13 早前一次 E2E 的数值作为对照，不把单次字节数当固定指标。
+- 证据：`logs/regression/20261126-w4/workflow-e2e/`（`e2e.json`、`export.md`、`export.docx`、`export-retry.md`）。
+
+### 18.3 页面彩排（headless Chrome + CDP）
+
+- RAG（15:52）：B 库提问“2027年元旦放假几天？”，流式回答“3天”；4 条引用均含文件名/段落/摘录，无错误；其中 2 条低相关，现场复现 BC-02。
+- Workflow（15:53）：发起后 16 个节点、进入 `WAITING_CONFIRM`，草稿出现；工具结果在前端 5 秒轮询后变为“格式通过/用语正常”。
+- 追加“【UI 彩排】请各部门于本周五前反馈。”并“修改后通过”→ `SUCCEEDED`，出现 Markdown/DOCX 下载按钮；历史为“待人工确认 → 已通过”，无 UI 错误。
+- 实际点击两个下载按钮：得到 MD 6910 B、DOCX 5849 B，均含 UI 修改文本、引用列表与确认记录，中文文件名/内容正常；字节数随模型输出波动，与 E2E 的 6699/5688 B 不同属预期。
+- 驳回路径（15:56–15:58）：首次驳回→“重新生成中”→`WAITING_CONFIRM`，草稿 1325→1995 字、`retryCount=1`；再次驳回→“已驳回”，确认卡片与导出按钮消失，导出接口返回业务码 `5006`，无 UI 错误。
+- 边界：Workflow UI 不渲染引用卡片，引用以视图 API 与导出文件为准。
+- 证据：`logs/regression/20261126-w4/ui-rag-smoke.json`、`ui-workflow-smoke.json`、`ui-workflow-reject-smoke.json`、`ui-download/export-ui.md`、`export-ui.docx`。
+
+### 18.4 材料
+
+| 文件 | 内容 |
+|---|---|
+| `docs/report-stage2.md` | W4 一页汇报单：硬检查自测、完成内容、8 分钟演示清单、问题与解决、下周期计划、学习笔记 |
+| `docs/learning-notes-stage2.md` | 1 概念（human-in-the-loop 状态机）+ 1 踩坑（旧草稿假重生成）+ 1 待验证问题（阈值/召回平衡） |
+| `docs/demo-script-stage2.md` | 8 分钟现场脚本、现场评测命令、备用命令、风险兜底、7 分钟设计讲解提纲 |
+| `docs/pr-log.md` | 阶段二提交列表、自审清单、无 PR/同伴评审/标签的偏差与补做计划 |
+
+### 18.5 未完成与边界
+
+- S10 干净环境彩排已在临时快照通过（见第 19 节）；2026-11-26 已本地提交并创建 annotated tag `stage2-v1.0`（见第 20 节），tag 无覆盖完整复跑尚未执行，远程推送/Release 待授权。
+- 阶段二无 GitHub PR、无同伴评审意见，已按培养计划“没有则记录偏差”处理，不伪造。
+- 页面主链路已用 headless Chrome 彩排，包含实际下载点击与两次驳回；汇报前仍建议人工快速走一遍，确认投屏布局与浏览器下载行为。
+
+
+## 19. S10 干净环境彩排（临时快照，2026-11-26）
+
+> 彩排时前置限制（后已于 2026-11-26 本地提交并创建 tag，见第 20 节）：FR-10/FR-13 与 W4 材料当时仍在工作区，未获提交/打 tag 授权。因此先做“干净克隆 + 当前工作区增量覆盖”的临时快照彩排；它能验证构建、启动、接口和真实 Dify 链路，但不能替代“从 tag 无覆盖克隆”的正式验收。
+
+### 19.1 快照与配置
+
+- 从本地仓库克隆 HEAD `0c6a580` 到系统临时目录；克隆后 `git status` 为空，`.env` 未被跟踪。
+- 将当前工作区补丁（20 个修改文件）与 8 个未跟踪源码/文档/脚本覆盖到克隆，快照共 28 项变更；未执行任何提交。
+- 运行时复制根目录 `.env` 与 `frontend/.env`（均被 gitignore）；快照 `tracked_env=0`、`tracked_data_docs=0`、`tracked_logs=0`。
+- 证据：`logs/regression/20261126-s10/snapshot-status.txt`、`worktree.patch`、`untracked-files.txt`。
+
+### 19.2 构建、启动与回归
+
+| 项目 | 结果 |
+|---|---|
+| 后端测试 | `mvn clean test`：104/104 通过，0 failure/error/skipped |
+| 前端安装/构建 | `npm ci` 成功；`npm run build` 成功，38 modules |
+| 后端启动 | 快照根目录启动，`/api/health` HTTP 200、`code=0` |
+| 前端启动 | Vite HTTP 200；代理 `/api/health` HTTP 200 |
+| 阶段一 chat | SSE 88 个 `message` + `done` |
+| 阶段一 extract | `code=0`，五字段齐全 |
+| RAG 15 题（B） | 命中 10/10、拒答 5/5、引用完整 10/10、SSE 15/15、错误 0，`RESULT: PASS`；平均首字/总耗时 2213/2463 ms |
+| Workflow E2E | 17/17 步，56.8 s；首次草稿 789 字/引用 3 条；MD 6425 B、DOCX 5675 B；重试草稿 1810 字；二次驳回 `REJECTED`；5005/5006 正常 |
+| RAG 页面（快照前端） | B 库回答 3 天，4 条引用，无错误 |
+
+- 阶段一首次内联中文 curl 因 Windows 终端编码返回 4000；改用 UTF-8 请求文件后通过，未改代码。
+- 证据：`logs/regression/20261126-s10/`（`backend-test.log`、`frontend-build.log`、`live-eval/`、`workflow-e2e/`、`ui-rag-snapshot.json`）。
+
+### 19.3 异常路径彩排
+
+- 模拟上游 429：RAG SSE 返回 `error 5002`，不发送 `done`。
+- Dify 不可达（关闭模拟上游、连接拒绝）：RAG 返回 `5002`，Workflow 返回文档定义的 `5004`。
+- 后端停止：页面显示“错误码 502 / 请求失败（HTTP 502）”，引用 0 条，未误报拒答。
+- 边界：未真实耗尽 Embedding 额度；429 为故障映射彩排，不声称供应商配额错误已实测。
+- 证据：`logs/regression/20261126-s10/upstream-429.sse`、`dify-unavailable-rag.sse`、`dify-unavailable-workflow.sse`、`ui-network-error.json`。
+
+### 19.4 清理与正式验收边界
+
+- 已停止快照后端、前端、headless Chrome、故障演练后端与 fake server，删除临时快照；Dify 容器保持运行，未执行 `docker compose down -v`。
+- 通过项：干净克隆可安装/构建/启动，阶段一与阶段二核心链路、UI RAG、Workflow E2E、异常映射均可运行。
+- 部分覆盖：快照前端只重跑 RAG 问答；Workflow UI 修改/下载/驳回沿用 15:53–15:58 当前工作区彩排，未在快照前端重跑。
+- 未覆盖：文档上传/列表实写冒烟（避免向真实 A/B 库重复入库）；该链路此前 S2/S3 已验收，若最终演示保留上传步骤，需在正式彩排中另建临时库或使用一次性样例验证。
+- 未通过项（截至临时快照时）：这不是 tag 可复现提交，演示仍依赖未提交的 FR-10/FR-13 增量。2026-11-26 后续已本地提交并创建 `stage2-v1.0`（第 20 节），但 tag 无覆盖完整复跑仍未执行；≤3 分钟 Workflow 录屏与架构图仍待补。
+- 未推送、未创建远程 tag/Release；无阶段二 PR/同伴评审。本地 tag 不代表远程交付完成。
+
+## 20. 本地提交与 stage2-v1.0 收口（2026-11-26）
+
+- 已获明确授权，提交 FR-10/FR-13、W4/S10 文档与脚本，并创建本地 annotated tag `stage2-v1.0`。
+- 本地 tag 指向阶段二最终提交；`origin/main` 仍为 `e057d0d`，未推送，未创建 GitHub Release。
+- 本次提交包含：`WorkflowEventCollector`、`WorkflowRetryExecutor`、FR-10 重试状态、FR-13 导出引用、后端全量 104/104 测试、W4 汇报/学习笔记/8 分钟脚本与已知边界清单。
+- 本次没有提升既有验收结论：W4 硬指标和 S10 临时快照结果不变；tag 无覆盖克隆、上传临时库、Workflow UI 快照复跑、8 分钟人工走台、≤3 分钟录屏和架构图仍未完成。
+- 全部未完成项与后续动作见 `docs/stage2-known-boundaries.md`；远程 push/Release 需另行明确授权。

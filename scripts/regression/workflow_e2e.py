@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""S9 real Workflow E2E regression.
+"""S9/S10 real Workflow E2E regression.
 
+Covers pause/confirm/export, FR-10 reject regeneration, FR-13 citation lists.
 Requires: backend :8080, Dify running, .env configured with a real workflow key.
 Writes evidence only under the supplied output directory; never prints keys.
 """
@@ -88,6 +89,20 @@ def get_view(base: str, run_id: str) -> dict:
     return data
 
 
+def wait_for_status(base: str, run_id: str, expected: str, timeout: int = SSE_TIMEOUT) -> dict:
+    deadline = time.time() + timeout
+    last = None
+    while time.time() < deadline:
+        view = get_view(base, run_id)
+        last = view.get("status")
+        if last == expected:
+            return view
+        if last in ("FAILED", "REJECTED", "SUCCEEDED"):
+            raise AssertionError(f"run {run_id} reached {last} while waiting for {expected}")
+        time.sleep(2)
+    raise AssertionError(f"timeout waiting for {expected}, last={last}")
+
+
 def confirm(base: str, run_id: str, action: str, content: str | None = None) -> dict:
     payload = {"action": action}
     if content is not None:
@@ -101,6 +116,29 @@ def confirm(base: str, run_id: str, action: str, content: str | None = None) -> 
 def assert_business_code(body: dict, expected: int, label: str) -> None:
     if body.get("code") != expected:
         raise AssertionError(f"{label}: expected code={expected}, got {body.get('code')} body={body}")
+
+
+def assert_citations(view: dict, label: str) -> list[dict]:
+    citations = view.get("citations") or []
+    if not citations:
+        raise AssertionError(f"{label}: citations are empty")
+    seen = set()
+    for item in citations:
+        if not str(item.get("docId") or "").strip():
+            raise AssertionError(f"{label}: citation docId is empty")
+        if not str(item.get("docName") or "").strip():
+            raise AssertionError(f"{label}: citation docName is empty")
+        if not isinstance(item.get("segmentIndex"), int):
+            raise AssertionError(f"{label}: citation segmentIndex is not an int")
+        if not str(item.get("excerpt") or "").strip():
+            raise AssertionError(f"{label}: citation excerpt is empty")
+        if len(item["excerpt"]) > 500:
+            raise AssertionError(f"{label}: citation excerpt exceeds 500 characters")
+        key = (item["docId"], item["segmentIndex"])
+        if key in seen:
+            raise AssertionError(f"{label}: duplicate citation {key}")
+        seen.add(key)
+    return citations
 
 
 def export(base: str, run_id: str, fmt: str) -> requests.Response:
@@ -134,7 +172,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     started = time.time()
     result: dict = {"base": base, "task": args.task, "steps": [], "passed": False}
-    marker = f"S9_E2E_{int(started)}"
+    marker = f"FR13_E2E_{int(started)}"
 
     def step(name: str, **data) -> None:
         entry = {"name": name, "ok": True}
@@ -154,7 +192,11 @@ def main() -> int:
             raise AssertionError(f"expected WAITING_CONFIRM, got {view.get('status')}")
         if not str(view.get("draft", "")).strip():
             raise AssertionError("draft is empty while WAITING_CONFIRM")
-        step("view_waiting", status=view.get("status"), draftChars=len(view.get("draft", "")))
+        initial_citations = assert_citations(view, "initial view")
+        first_citation = initial_citations[0]
+        step("view_waiting", status=view.get("status"), draftChars=len(view.get("draft", "")),
+             citations=len(initial_citations), firstDoc=first_citation.get("docName"),
+             firstSegment=first_citation.get("segmentIndex"), firstScore=first_citation.get("score"))
 
         invalid = confirm(base, run_id, "__invalid__")
         assert_business_code(invalid, 5005, "invalid action")
@@ -174,8 +216,13 @@ def main() -> int:
         md = export(base, run_id, "md")
         if md.status_code != 200 or marker not in md.text:
             raise AssertionError(f"markdown export failed http={md.status_code} marker={marker in md.text}")
+        for expected in ("## 引用列表", "## 确认记录", "动作：修改后通过",
+                         first_citation["docName"], first_citation["excerpt"][:40]):
+            if expected not in md.text:
+                raise AssertionError(f"markdown export missing {expected!r}")
         (out_dir / "export.md").write_bytes(md.content)
-        step("export_md", bytes=len(md.content), contentType=md.headers.get("Content-Type", ""))
+        step("export_md", bytes=len(md.content), contentType=md.headers.get("Content-Type", ""),
+             citationList=True)
 
         docx = export(base, run_id, "docx")
         if docx.status_code != 200:
@@ -183,26 +230,84 @@ def main() -> int:
         text = docx_text(docx.content)
         if marker not in text or "校验摘要" not in text:
             raise AssertionError("docx text missing marker or Chinese summary")
+        for expected in ("引用列表", "确认记录", first_citation["docName"]):
+            if expected not in text:
+                raise AssertionError(f"docx text missing {expected!r}")
         (out_dir / "export.docx").write_bytes(docx.content)
-        step("export_docx", bytes=len(docx.content), chineseText=True)
+        step("export_docx", bytes=len(docx.content), chineseText=True, citationList=True)
 
         run2, _ = start_run(base, args.task)
         unconfirmed = export(base, run2, "md").json()
         assert_business_code(unconfirmed, 5006, "unconfirmed export")
         step("unconfirmed_export_5006")
 
-        rejected = confirm(base, run2, "reject")
+        reject_feedback = f"{marker} 请补充责任人和检查日期"
+        rejected = confirm(base, run2, "reject", reject_feedback)
         assert_business_code(rejected, 0, "reject")
         rejected_view = rejected.get("data") or {}
-        if rejected_view.get("status") != "REJECTED":
-            raise AssertionError(f"reject did not set REJECTED: {rejected_view.get('status')}")
-        step("reject_rejected", status=rejected_view.get("status"))
+        if rejected_view.get("status") != "RETRYING":
+            raise AssertionError(f"first reject did not set RETRYING: {rejected_view.get('status')}")
+        if rejected_view.get("retryCount") != 1:
+            raise AssertionError(f"unexpected retryCount={rejected_view.get('retryCount')}")
+        step("reject_retrying", status=rejected_view.get("status"),
+             retryCount=rejected_view.get("retryCount"))
 
-        rejected_export = export(base, run2, "md").json()
+        retrying_export = export(base, run2, "md").json()
+        assert_business_code(retrying_export, 5006, "retrying export")
+        step("retrying_export_5006")
+
+        regenerated = wait_for_status(base, run2, "WAITING_CONFIRM")
+        if regenerated.get("retryCount") != 1:
+            raise AssertionError(f"unexpected retryCount after retry={regenerated.get('retryCount')}")
+        if not str(regenerated.get("draft", "")).strip():
+            raise AssertionError("regenerated draft is empty")
+        retry_citations = assert_citations(regenerated, "regenerated view")
+        step("retry_regenerated", status=regenerated.get("status"),
+             retryCount=regenerated.get("retryCount"),
+             draftChars=len(regenerated.get("draft", "")),
+             citations=len(retry_citations))
+
+        retried_content = f"{str(regenerated.get('draft', '')).strip()}\n\n{marker} 重试后确认。"
+        if len(retried_content) > 50000:
+            raise AssertionError("retried content exceeds 50000 characters")
+        retried_modify = confirm(base, run2, "modify", retried_content)
+        assert_business_code(retried_modify, 0, "retried modify")
+        retried_view = retried_modify.get("data") or {}
+        if retried_view.get("status") != "SUCCEEDED":
+            raise AssertionError(f"retried modify did not succeed: {retried_view.get('status')}")
+        step("retry_modify_succeeded", status=retried_view.get("status"))
+
+        retried_md = export(base, run2, "md")
+        if retried_md.status_code != 200 or marker not in retried_md.text:
+            raise AssertionError(f"retried markdown export failed http={retried_md.status_code}")
+        for expected in ("## 引用列表", "## 确认记录", retry_citations[0]["docName"]):
+            if expected not in retried_md.text:
+                raise AssertionError(f"retried markdown export missing {expected!r}")
+        (out_dir / "export-retry.md").write_bytes(retried_md.content)
+        step("retry_export_md", bytes=len(retried_md.content), citationList=True)
+
+        run3, _ = start_run(base, args.task)
+        first_reject = confirm(base, run3, "reject", f"{marker} 第一次驳回")
+        assert_business_code(first_reject, 0, "run3 first reject")
+        if (first_reject.get("data") or {}).get("status") != "RETRYING":
+            raise AssertionError("run3 first reject did not set RETRYING")
+        wait_for_status(base, run3, "WAITING_CONFIRM")
+
+        second_reject = confirm(base, run3, "reject")
+        assert_business_code(second_reject, 0, "run3 second reject")
+        second_view = second_reject.get("data") or {}
+        if second_view.get("status") != "REJECTED":
+            raise AssertionError(f"second reject did not set REJECTED: {second_view.get('status')}")
+        if second_view.get("retryCount") != 1:
+            raise AssertionError(f"second reject retryCount={second_view.get('retryCount')}")
+        step("second_reject_terminal", status=second_view.get("status"),
+             retryCount=second_view.get("retryCount"))
+
+        rejected_export = export(base, run3, "md").json()
         assert_business_code(rejected_export, 5006, "rejected export")
         step("rejected_export_5006")
 
-        duplicate = confirm(base, run2, "reject")
+        duplicate = confirm(base, run3, "reject")
         assert_business_code(duplicate, 5005, "duplicate reject")
         step("duplicate_confirm_5005")
 

@@ -1,5 +1,6 @@
 package com.ailyrx.aichat.workflow;
 
+import com.ailyrx.aichat.rag.CitationItem;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -10,11 +11,13 @@ import java.util.Map;
 public record WorkflowRunView(
         String runId,
         String status,
+        int retryCount,
         String traceId,
         WorkflowDocumentMeta document,
         String draft,
         String answer,
         Map<String, Object> toolResults,
+        List<CitationItem> citations,
         List<WorkflowNodeSnapshot> nodes,
         String errorCode,
         String errorMessage,

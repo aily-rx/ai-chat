@@ -2,8 +2,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档版本 | v2.0（2026-11-26） |
-| 适用范围 | 阶段一 W1–W2；阶段二 S1–S9 |
+| 文档版本 | v2.1（2026-11-26） |
+| 适用范围 | 阶段一 W1–W2；阶段二 S1–S9 及 S10 前增量（FR-10、FR-13） |
 | 后端地址 | `http://localhost:8080` |
 | 前端开发地址 | `http://localhost:5173` |
 | 协议 | HTTP + JSON；流式接口使用 SSE（`text/event-stream`） |
@@ -597,7 +597,7 @@ data: {"runId":"...","status":"WAITING_CONFIRM","traceId":"a1b2c3d4"}
 
 #### `GET /api/workflow/{runId}`
 
-返回运行状态、草稿、工具结果、节点快照、确认结果和状态历史：
+返回运行状态、草稿、工具结果、引用、节点快照、确认结果和状态历史：
 
 ```json
 {
@@ -606,6 +606,7 @@ data: {"runId":"...","status":"WAITING_CONFIRM","traceId":"a1b2c3d4"}
   "data": {
     "runId": "...",
     "status": "WAITING_CONFIRM",
+    "retryCount": 0,
     "traceId": "a1b2c3d4",
     "document": {
       "title": "起草一份安全生产检查通知",
@@ -620,6 +621,16 @@ data: {"runId":"...","status":"WAITING_CONFIRM","traceId":"a1b2c3d4"}
       "format": {"passed": true, "issue_text": ""},
       "terms": {"has_hits": false, "hit_text": ""}
     },
+    "citations": [
+      {
+        "docId": "doc-...",
+        "docName": "安全生产检查通知.pdf",
+        "segmentIndex": 2,
+        "excerpt": "检索片段摘录（空白折叠，最多 500 字）",
+        "page": null,
+        "score": 0.8732
+      }
+    ],
     "nodes": [
       {"nodeId": "format_parse", "name": "格式校验", "type": "http-request", "status": "succeeded"}
     ],
@@ -636,7 +647,9 @@ data: {"runId":"...","status":"WAITING_CONFIRM","traceId":"a1b2c3d4"}
 }
 ```
 
-- `status`：`RUNNING`、`WAITING_CONFIRM`、`SUCCEEDED`、`FAILED`、`REJECTED`；
+- `status`：`RUNNING`、`WAITING_CONFIRM`、`RETRYING`、`SUCCEEDED`、`FAILED`、`REJECTED`；
+- `retryCount`：已使用的驳回重试次数，`0` 或 `1`；
+- `citations`：从 Workflow 知识检索节点输出映射的引用，字段与 RAG 一致；按分数降序、按 `docId + segmentIndex` 去重，`segmentIndex` 直接使用检索段落序号（不额外 +1），`page` 固定 `null`；直接使用已有草稿或检索无结果时为 `[]`；
 - 记录不存在、已失效或确认已过期：HTTP 200 + `code=5005`；
 - 响应不包含 `form_token`；
 - 运行状态保存在后端内存，重启清空。
@@ -653,20 +666,24 @@ data: {"runId":"...","status":"WAITING_CONFIRM","traceId":"a1b2c3d4"}
 | 字段 | 类型 | 必填 | 约束 |
 |---|---|---|---|
 | `action` | string | 是 | `approve`、`modify`、`reject` |
-| `content` | string | `modify` 时必填 | 非空且 ≤50000 字；`approve`/`reject` 可省略 |
+| `content` | string | `modify` 时必填 | 非空且 ≤50000 字；`reject` 时可选，作为驳回意见参与重新生成；`approve` 可省略 |
 
-- 成功：HTTP 200 + `code=0`，`data` 为更新后的 `WorkflowRunView`；`approve`/`modify` → `SUCCEEDED`，`reject` → `REJECTED`；
+- 成功：HTTP 200 + `code=0`，`data` 为更新后的 `WorkflowRunView`；`approve`/`modify` → `SUCCEEDED`；
+- 首次 `reject`（`retryCount=0`）：提交 Dify 后返回 `RETRYING`、`retryCount=1`；后台清空 `draft`，把上一版草稿与驳回意见附加到任务描述，重新执行检索与生成；客户端应轮询 `GET /api/workflow/{runId}`，直到回到 `WAITING_CONFIRM` 或 `FAILED`；
+- 第二次 `reject`（`retryCount=1`）：返回 `REJECTED` 终态，不再重新生成；
+- 重新生成失败：查询返回 `FAILED` + `errorCode=5004`，不能导出；重新生成未返回待确认草稿时同样按失败处理；
 - 非法动作、重复确认、已过期、记录不存在：HTTP 200 + `code=5005`；
 - 动作为空字符串等 Bean Validation 失败：HTTP 400 + `code=4000`；
-- 确认成功后后端调用 Dify 服务 API 提交表单；Dify 异步恢复，后端不消费恢复流；
-- `reject` 为终态，不自动回退到生成节点；需要重试时重新发起任务。
+- 确认成功后后端调用 Dify 服务 API 提交表单；通过/修改后 Dify 异步恢复并结束，后端不消费恢复流；
+- 驳回回退通过重新调用同一 Dify Workflow 实现，不是 Dify 节点级回滚；DSL `s8-v1.0` 不变。
 
 #### `GET /api/workflow/{runId}/export?format=md|docx`
 
 - 仅 `SUCCEEDED` 可导出；未确认、已驳回、失败、过期、记录不存在或格式不支持：HTTP 200 + `code=5006`；
 - `format=md`（默认）返回 `text/markdown; charset=UTF-8`；`format=docx` 返回 Word MIME；
 - 响应头包含 UTF-8 `Content-Disposition: attachment` 与 `Cache-Control: no-store`；
-- Markdown/DOCX 包含标题、主送机关、正文、落款、日期、格式/术语校验摘要和确认结果；当前不包含知识检索引用列表（S9 已知差异，见 README“已知限制”）。
+- Markdown/DOCX 包含标题、主送机关、正文、落款、日期、格式/术语校验摘要、引用列表和确认记录（动作/时间/traceId）；
+- 引用列表条目包含文档名、段落序号、相关度与摘录；检索无结果时写“本次检索未返回可引用片段”，直接使用已有草稿时写“本次运行未执行检索”，不伪造引用。
 
 ```bash
 curl -OJ "http://localhost:8080/api/workflow/$RUN_ID/export?format=md"
@@ -679,7 +696,11 @@ curl -OJ "http://localhost:8080/api/workflow/$RUN_ID/export?format=docx"
 RUNNING
   ├─ Dify 暂停 → WAITING_CONFIRM
   │                 ├─ approve/modify → SUCCEEDED → 允许导出
-  │                 └─ reject → REJECTED → 禁止导出
+  │                 └─ reject（retryCount=0）→ RETRYING
+  │                        ├─ 重新生成并暂停 → WAITING_CONFIRM（retryCount=1）
+  │                        │        ├─ approve/modify → SUCCEEDED → 允许导出
+  │                        │        └─ reject → REJECTED → 禁止导出
+  │                        └─ 重新生成失败 → FAILED（5004）→ 禁止导出
   ├─ 正常完成 → SUCCEEDED（无人工节点时）
   └─ 失败/过期 → FAILED
 ```
@@ -738,8 +759,9 @@ RUNNING
 - [ ] 格式/用语检查不修改原文，超长返回 400 + `4000`；
 - [ ] Workflow 空草稿真实暂停，`done.status=WAITING_CONFIRM`，可查询到非空草稿；
 - [ ] 非法 action、重复确认、过期/未知 run 返回 `5005`，无未处理 500；
-- [ ] `modify` 后 `SUCCEEDED`；导出 Markdown/DOCX 包含修改内容和中文；
-- [ ] 未确认、已驳回导出返回 `5006`；不存在的 run 导出同样返回 `5006`；
+- [ ] `modify` 后 `SUCCEEDED`；导出 Markdown/DOCX 包含修改内容、中文、引用列表和确认记录；引用字段与视图 `citations` 一致；
+- [ ] 首次 `reject` 返回 `RETRYING`、`retryCount=1`；重新生成后回到 `WAITING_CONFIRM`；再次 `reject` 返回 `REJECTED` 且不再重试；
+- [ ] 重新生成中、未确认、已驳回、不存在的 run 导出返回 `5006`；重新生成失败返回 `FAILED` + `errorCode=5004`；
 - [ ] 响应与日志不出现 `form_token`、Dify Key、真实模型 Key。
 
 ---
@@ -761,3 +783,4 @@ RUNNING
 | v1.0 | 2026-11-11 | 归纳阶段一健康检查、流式对话、结构化抽取接口契约 |
 | v1.2 | 2026-11-12 | 增加输出截断错误、SSE 反缓冲响应头和抽取温度配置说明 |
 | v2.0 | 2026-11-26 | 补充知识库、RAG SSE、格式/术语检查和 Workflow 状态机/确认/导出契约；扩展 5002–5006；明确以 Markdown/SSE 示例为契约，不引入 springdoc |
+| v2.1 | 2026-11-26 | Workflow 视图新增 `citations`；Markdown/DOCX 导出新增引用列表与确认记录，明确空引用说明 |

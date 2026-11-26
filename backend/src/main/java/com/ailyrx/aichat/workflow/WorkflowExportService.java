@@ -1,8 +1,13 @@
 package com.ailyrx.aichat.workflow;
 
+import com.ailyrx.aichat.rag.CitationItem;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -36,26 +41,31 @@ public class WorkflowExportService {
 
     String markdown(WorkflowRunState state) {
         WorkflowDocumentMeta document = state.getDocument();
-        String content = state.getConfirmation().content();
+        WorkflowConfirmation confirmation = state.getConfirmation();
         StringBuilder builder = new StringBuilder();
         builder.append("# ").append(document.title()).append("\n\n");
         if (!document.recipient().isBlank()) {
             builder.append(document.recipient()).append("\n\n");
         }
-        builder.append(content).append("\n\n");
+        builder.append(confirmation.content()).append("\n\n");
         builder.append(document.signature()).append("\n");
         builder.append(document.date()).append("\n\n");
         builder.append("---\n\n");
         builder.append("## 校验摘要\n\n");
         builder.append("- 格式检查：").append(formatSummary(state)).append("\n");
-        builder.append("- 术语检查：").append(termsSummary(state)).append("\n");
-        builder.append("- 确认结果：").append(actionLabel(state.getConfirmation().action())).append("\n");
+        builder.append("- 术语检查：").append(termsSummary(state)).append("\n\n");
+        builder.append("## 引用列表\n\n");
+        appendMarkdownCitations(builder, state);
+        builder.append("\n## 确认记录\n\n");
+        builder.append("- 动作：").append(actionLabel(confirmation.action())).append("\n");
+        builder.append("- 确认时间：").append(formatInstant(confirmation)).append("\n");
+        builder.append("- traceId：").append(confirmation.traceId() == null ? "-" : confirmation.traceId()).append("\n");
         return builder.toString();
     }
 
     private byte[] docx(WorkflowRunState state) {
         WorkflowDocumentMeta document = state.getDocument();
-        String content = state.getConfirmation().content();
+        WorkflowConfirmation confirmation = state.getConfirmation();
 
         try (XWPFDocument output = new XWPFDocument();
              ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
@@ -64,7 +74,7 @@ public class WorkflowExportService {
             if (!document.recipient().isBlank()) {
                 addParagraph(output, document.recipient(), 12, false, ParagraphAlignment.LEFT);
             }
-            for (String line : content.split("\r?\n", -1)) {
+            for (String line : confirmation.content().split("\r?\n", -1)) {
                 addParagraph(output, line, 12, false, ParagraphAlignment.LEFT);
             }
             addParagraph(output, "", 12, false, ParagraphAlignment.LEFT);
@@ -74,12 +84,75 @@ public class WorkflowExportService {
             addParagraph(output, "校验摘要", 13, true, ParagraphAlignment.LEFT);
             addParagraph(output, "格式检查：" + formatSummary(state), 11, false, ParagraphAlignment.LEFT);
             addParagraph(output, "术语检查：" + termsSummary(state), 11, false, ParagraphAlignment.LEFT);
-            addParagraph(output, "确认结果：" + actionLabel(state.getConfirmation().action()), 11, false, ParagraphAlignment.LEFT);
+            addParagraph(output, "", 12, false, ParagraphAlignment.LEFT);
+            addParagraph(output, "引用列表", 13, true, ParagraphAlignment.LEFT);
+            appendDocxCitations(output, state);
+            addParagraph(output, "", 12, false, ParagraphAlignment.LEFT);
+            addParagraph(output, "确认记录", 13, true, ParagraphAlignment.LEFT);
+            addParagraph(output, "动作：" + actionLabel(confirmation.action()), 11, false, ParagraphAlignment.LEFT);
+            addParagraph(output, "确认时间：" + formatInstant(confirmation), 11, false, ParagraphAlignment.LEFT);
+            addParagraph(output, "traceId：" + (confirmation.traceId() == null ? "-" : confirmation.traceId()),
+                    11, false, ParagraphAlignment.LEFT);
             output.write(buffer);
             return buffer.toByteArray();
         } catch (IOException exception) {
             throw WorkflowRunException.exportFailed("导出文件生成失败");
         }
+    }
+
+    private void appendMarkdownCitations(StringBuilder builder, WorkflowRunState state) {
+        List<CitationItem> citations = state.getCitations();
+        if (citations.isEmpty()) {
+            builder.append(citationEmptyNote(state)).append("\n");
+            return;
+        }
+        int index = 1;
+        for (CitationItem citation : citations) {
+            builder.append(index++).append(". 《").append(citation.docName()).append("》")
+                    .append("第 ").append(citation.segmentIndex()).append(" 段")
+                    .append("（相关度 ").append(formatScore(citation.score())).append("）\n");
+            builder.append("   > ").append(citation.excerpt()).append("\n");
+        }
+    }
+
+    private void appendDocxCitations(XWPFDocument output, WorkflowRunState state) {
+        List<CitationItem> citations = state.getCitations();
+        if (citations.isEmpty()) {
+            addParagraph(output, citationEmptyNote(state).replaceFirst("^- ", ""), 11, false, ParagraphAlignment.LEFT);
+            return;
+        }
+        int index = 1;
+        for (CitationItem citation : citations) {
+            addParagraph(
+                    output,
+                    index++ + ". 《" + citation.docName() + "》第 " + citation.segmentIndex()
+                            + " 段（相关度 " + formatScore(citation.score()) + "）",
+                    11,
+                    false,
+                    ParagraphAlignment.LEFT);
+            addParagraph(output, "摘录：" + citation.excerpt(), 11, false, ParagraphAlignment.LEFT);
+        }
+    }
+
+    private String citationEmptyNote(WorkflowRunState state) {
+        boolean retrievalRan = state.getNodes().stream()
+                .anyMatch(node -> "retrieval".equals(node.nodeId()));
+        return retrievalRan
+                ? "- 本次检索未返回可引用片段。"
+                : "- 本次运行未执行检索（直接使用已有草稿），无引用。";
+    }
+
+    private String formatInstant(WorkflowConfirmation confirmation) {
+        if (confirmation.confirmedAt() == null) {
+            return "-";
+        }
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                .withZone(ZoneId.systemDefault())
+                .format(confirmation.confirmedAt());
+    }
+
+    private String formatScore(double score) {
+        return String.format(Locale.ROOT, "%.4f", score);
     }
 
     private void addParagraph(

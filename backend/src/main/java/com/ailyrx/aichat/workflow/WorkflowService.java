@@ -2,9 +2,9 @@ package com.ailyrx.aichat.workflow;
 
 import com.ailyrx.aichat.common.ErrorCodes;
 import com.ailyrx.aichat.dify.DifyException;
+import com.ailyrx.aichat.rag.CitationItem;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,16 +41,15 @@ public class WorkflowService {
             AtomicBoolean closed) {
         AtomicBoolean contentSent = new AtomicBoolean(false);
         StringBuilder answerBuffer = new StringBuilder();
-        Map<String, WorkflowNodeSnapshot> nodes = new LinkedHashMap<>();
-        Map<String, Object> toolResults = new LinkedHashMap<>();
+        WorkflowEventCollector collector = new WorkflowEventCollector();
         WorkflowDocumentMeta document = documentMeta(input);
+        Map<String, String> inputs = buildInputs(input, draft);
 
         try {
             DifyWorkflowResult result = difyWorkflowClient.run(
-                    buildInputs(input, draft),
+                    inputs,
                     event -> {
-                        snapshot(nodes, event);
-                        captureToolResult(toolResults, event);
+                        collector.accept(event);
                         send(emitter, closed, "node", nodePayload(event));
                     },
                     delta -> {
@@ -76,7 +75,9 @@ public class WorkflowService {
             String answer = answerBuffer.toString();
             String draftContent = extractDraft(answer);
             String runId = result.runId() == null ? traceId : result.runId();
-            List<WorkflowNodeSnapshot> nodeList = new ArrayList<>(nodes.values());
+            List<WorkflowNodeSnapshot> nodeList = collector.nodes();
+            Map<String, Object> toolResults = collector.toolResults();
+            List<CitationItem> citations = collector.citations();
 
             if (result.waitingForHumanInput()) {
                 DifyHumanInput humanInput = result.humanInput();
@@ -87,10 +88,13 @@ public class WorkflowService {
                         answer,
                         draftContent,
                         toolResults,
+                        citations,
                         nodeList,
                         WorkflowRunStatus.WAITING_CONFIRM,
                         humanInput.formToken(),
-                        humanInput.expiresAt());
+                        humanInput.expiresAt(),
+                        inputs,
+                        0);
                 runStore.save(state);
 
                 if (!closed.get()) {
@@ -112,10 +116,13 @@ public class WorkflowService {
                     answer,
                     draftContent,
                     toolResults,
+                    citations,
                     nodeList,
                     WorkflowRunStatus.SUCCEEDED,
                     null,
-                    null);
+                    null,
+                    inputs,
+                    0);
             runStore.save(state);
 
             if (!closed.get()) {
@@ -168,35 +175,6 @@ public class WorkflowService {
         return title.length() <= 50 ? title : title.substring(0, 50);
     }
 
-    private void snapshot(Map<String, WorkflowNodeSnapshot> nodes, WorkflowNodeEvent event) {
-        if (event.nodeId() == null) {
-            return;
-        }
-        nodes.put(event.nodeId(), new WorkflowNodeSnapshot(
-                event.nodeId(), event.name(), event.nodeType(), event.status()));
-    }
-
-    private void captureToolResult(Map<String, Object> toolResults, WorkflowNodeEvent event) {
-        if (event.nodeId() == null || event.outputs() == null || event.outputs().isEmpty()) {
-            return;
-        }
-        String key = switch (event.nodeId()) {
-            case "format_parse", "format_fallback" -> "format";
-            case "terms_parse", "terms_fallback" -> "terms";
-            default -> null;
-        };
-        if (key == null) {
-            return;
-        }
-        Map<String, Object> entry = new LinkedHashMap<>(event.outputs());
-        entry.put("nodeId", event.nodeId());
-        entry.put("status", event.status());
-        if (event.nodeId().endsWith("fallback")) {
-            entry.put("fallback", true);
-        }
-        toolResults.put(key, entry);
-    }
-
     private Map<String, Object> nodePayload(WorkflowNodeEvent event) {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (event.nodeId() != null) {
@@ -225,7 +203,7 @@ public class WorkflowService {
         return answer.strip();
     }
 
-    private String extractAnswer(Map<String, Object> outputs) {
+    static String extractAnswer(Map<String, Object> outputs) {
         if (outputs == null || outputs.isEmpty()) {
             return null;
         }

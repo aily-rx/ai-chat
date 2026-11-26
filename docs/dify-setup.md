@@ -111,7 +111,7 @@ Docker Desktop、WSL 与 Dify 重启后复核：15 个容器运行，`docker-api
 | 工具后端 | `http://host.docker.internal:8080/api/format/check`、`/api/terms/check` |
 | 知识库 | B 库；DSL 中数据集 ID 已替换为 `REPLACE_WITH_DATASET_B_ID` |
 
-DSL、节点结构与导入步骤见 `dify/dsl/README.md`。S8 在 `final_agg` 与 `end` 之间增加 `human-input` 节点 `human_confirm`，支持 `approve/modify/reject`，三个动作都连到 `end`。S9 只做文档和一致性校验，不修改 DSL，也不新增发布版本。应用服务 API Key 只在后端被 gitignore 的 `.env` 中配置为 `DIFY_WORKFLOW_API_KEY`，不写入本文件。
+DSL、节点结构与导入步骤见 `dify/dsl/README.md`。S8 在 `final_agg` 与 `end` 之间增加 `human-input` 节点 `human_confirm`，支持 `approve/modify/reject`，三个动作都连到 `end`。S9 只做文档和一致性校验，不修改 DSL，也不新增发布版本。FR-10 驳回回退为后端增量：驳回后后端重新调用同一 Workflow，不改变 DSL，`s8-v1.0` 仍是当前发布版本。应用服务 API Key 只在后端被 gitignore 的 `.env` 中配置为 `DIFY_WORKFLOW_API_KEY`，不写入本文件。
 
 ### SSRF 代理放行
 

@@ -17,6 +17,8 @@ export function useWorkflow() {
   const runId = ref('')
   const traceId = ref('')
   const documentMeta = ref(null)
+  const retryCount = ref(0)
+  const rejectReason = ref('')
   const confirmation = ref(null)
   const history = ref([])
   const error = ref('')
@@ -39,6 +41,8 @@ export function useWorkflow() {
     runId.value = ''
     traceId.value = ''
     documentMeta.value = null
+    retryCount.value = 0
+    rejectReason.value = ''
     confirmation.value = null
     history.value = []
     error.value = ''
@@ -136,13 +140,18 @@ export function useWorkflow() {
     error.value = ''
     isBusy.value = true
     try {
-      const view = await confirmWorkflow(
-        runId.value,
-        action,
-        action === 'modify' ? draft.value : '',
-      )
+      const content = action === 'modify'
+        ? draft.value
+        : action === 'reject'
+          ? rejectReason.value
+          : ''
+      const view = await confirmWorkflow(runId.value, action, content)
       applyView(view)
-      stopPolling()
+      if (view?.status === 'RETRYING') {
+        startPolling()
+      } else {
+        stopPolling()
+      }
     } catch (caught) {
       error.value = caught.message || '确认失败'
       if (caught.code === 5005) {
@@ -180,19 +189,30 @@ export function useWorkflow() {
     if (!view) {
       return
     }
+    const previousStatus = status.value
+    const previousRetryCount = retryCount.value
     status.value = view.status || status.value
     runId.value = view.runId || runId.value
     traceId.value = view.traceId || traceId.value
     documentMeta.value = view.document || documentMeta.value
     toolResults.value = view.toolResults || toolResults.value
+    if (Number.isInteger(view.retryCount)) {
+      retryCount.value = view.retryCount
+    }
     if (Array.isArray(view.nodes) && view.nodes.length) {
       nodes.value = view.nodes
     }
+    if (typeof view.answer === 'string' && view.answer) {
+      answer.value = view.answer
+    }
     confirmation.value = view.confirmation || confirmation.value
     history.value = Array.isArray(view.history) ? view.history : history.value
-    if (view.confirmation?.content) {
+    const regenerated = view.status === 'WAITING_CONFIRM'
+      && (previousStatus === 'RETRYING' || retryCount.value > previousRetryCount)
+    if (view.confirmation?.content && status.value === 'SUCCEEDED') {
       draft.value = view.confirmation.content
-    } else if (view.draft && status.value === 'WAITING_CONFIRM' && !draft.value.trim()) {
+    } else if (view.draft && status.value === 'WAITING_CONFIRM'
+      && (regenerated || !draft.value.trim())) {
       draft.value = view.draft
     }
     if (view.errorMessage) {
@@ -212,18 +232,22 @@ export function useWorkflow() {
     }
   }
 
+  function isPollingStatus(value) {
+    return value === 'WAITING_CONFIRM' || value === 'RETRYING'
+  }
+
   function startPolling() {
     if (pollTimer) {
       return
     }
     pollTimer = window.setInterval(async () => {
-      if (!runId.value || isBusy.value || status.value !== 'WAITING_CONFIRM') {
+      if (!runId.value || isBusy.value || !isPollingStatus(status.value)) {
         return
       }
       try {
         const view = await getWorkflowRun(runId.value)
         applyView(view)
-        if (view.status !== 'WAITING_CONFIRM') {
+        if (!isPollingStatus(view.status)) {
           stopPolling()
         }
       } catch (caught) {
@@ -273,6 +297,8 @@ export function useWorkflow() {
     runId,
     traceId,
     documentMeta,
+    retryCount,
+    rejectReason,
     confirmation,
     history,
     error,

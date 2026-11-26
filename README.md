@@ -1,6 +1,6 @@
 # ai-chat
 
-「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互、15 题 A/B 评测，以及带格式/术语校验、工具兜底与人工确认导出的 Dify Workflow；S9 已完成文档、DSL、数据清单与四批回归收口，下一步 S10 干净环境彩排、最终材料和 `stage2-v1.0` 标签。
+「全栈与 Agent 方向实习生 8 周培养计划」实践项目主仓库：Vue3 + Spring Boot + DeepSeek API。阶段一已交付流式对话与公文结构化抽取；阶段二已完成知识库上传、A/B 双库、后端 RAG 流式问答、前端引用交互、15 题 A/B 评测，以及带格式/术语校验、工具兜底与人工确认导出的 Dify Workflow；S9 已完成文档、DSL、数据清单与四批回归收口，W4 最终评测与汇报材料已生成，S10 干净环境彩排在临时快照通过；本地 annotated tag `stage2-v1.0` 已创建，远程推送/Release 待授权，已知边界见 `docs/stage2-known-boundaries.md`。
 
 > 2026-11-19：仓库由 `ai-chat-stage1` 更名为 `ai-chat`；阶段一 tag 内容保留为历史快照，GitHub 旧链接自动重定向。
 
@@ -8,9 +8,9 @@
 |---|---|
 | GitHub | https://github.com/aily-rx/ai-chat |
 | 阶段一交付 tag | `stage1-v1.4`（包含协作人 PR #4 交叉评审记录；`stage1-v1.3`、`stage1-v1.2`、`stage1-v1.1`、初始里程碑 `stage1-v1` 保留） |
-| 阶段二交付 tag | `stage2-v1.0`（开发中；需求见根目录 `docs/07-阶段二需求文档.md`） |
+| 阶段二交付 tag | `stage2-v1.0`（2026-11-26 本地 annotated tag；包含 FR-10/FR-13、W4/S10 材料和已知边界；远程推送/Release 待授权；需求见根目录 `docs/07-阶段二需求文档.md`） |
 | 主链路 | 阶段一：Vue3（5173）→ Spring Boot（8080）→ DeepSeek API；阶段二 RAG：Vue3 → Spring Boot → Dify Chatflow（A/B 应用）→ Dify 知识库；S7/S8 Workflow：前端 → Spring Boot → Dify Workflow → 后端格式/术语工具 → human_input 人工确认 → Markdown/DOCX 导出 |
-| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S9 已完成（S7 双路径/工具兜底、S8 暂停确认/驳回/导出、S9 文档/DSL/数据清单/四批回归均通过），下一步 S10 干净环境彩排与 `stage2-v1.0` |
+| 交付状态 | 阶段一 S0–S8 已完成；阶段二 S0–S9 已完成（S7 双路径/工具兜底、S8 暂停确认/导出、S9 文档/DSL/数据清单/四批回归均通过）；S10 前已补齐 FR-10 驳回回退（最多重试 1 次）与 FR-13 导出引用列表；W4 最终评测（A/B 均 10/10 命中、5/5 拒答、10/10 引用完整）与汇报材料已完成；S10 临时快照彩排通过（104/104、前端构建、RAG 15 题、Workflow 17/17）；本地 `stage2-v1.0` 已创建，tag 无覆盖完整复跑与远程推送/Release 仍待后续 |
 
 ## 一、功能与请求链路
 
@@ -54,9 +54,10 @@ DeepSeek API
 阶段二已实现（S8）：
 
 - Dify Workflow 在 `human_input` 节点暂停；后端保存 `runId`、状态、草稿、工具结果、历史与 traceId，SSE 终态为 `done.status=WAITING_CONFIRM`，不向前端或接口返回 `form_token`；
-- 运行状态查询：`GET /api/workflow/{runId}`，返回 `RUNNING/WAITING_CONFIRM/SUCCEEDED/FAILED/REJECTED`、草稿、工具结果、节点快照、确认结果与状态历史；
+- 运行状态查询：`GET /api/workflow/{runId}`，返回 `RUNNING/WAITING_CONFIRM/RETRYING/SUCCEEDED/FAILED/REJECTED`、`retryCount`、草稿、工具结果、节点快照、确认结果与状态历史；
+- 驳回回退：首次 `reject` 可选携带驳回意见；后端提交 Dify 后清空 `draft`，把上一版草稿与驳回意见附加到 `task`，强制重新检索和生成，状态 `WAITING_CONFIRM → RETRYING → WAITING_CONFIRM`，`retryCount=1`；再次 `reject` 才进入 `REJECTED` 终态，最多重试 1 次；
 - 人工确认：`POST /api/workflow/{runId}/confirm`，支持 `approve/modify/reject`；修改后内容非空且 ≤50000 字；非法动作、重复确认、过期或记录不存在返回业务码 `5005`；
-- 导出：`GET /api/workflow/{runId}/export?format=md|docx`；Markdown P0，DOCX 使用 Apache POI；仅 `SUCCEEDED` 可导出，未确认、已驳回、失败或记录不存在返回 `5006`；
+- 导出：`GET /api/workflow/{runId}/export?format=md|docx`；Markdown P0，DOCX 使用 Apache POI；仅 `SUCCEEDED` 可导出，未确认、已驳回、失败或记录不存在返回 `5006`；导出包含正文、格式/术语校验摘要、引用列表与确认记录；
 - 前端“公文工作流”页：发起/停止、节点进度、格式/用语工具结果、待确认草稿编辑、通过/修改/驳回、状态历史与下载按钮；
 - Dify 发布版本 `s8-v1.0`，新增人工确认节点；DSL 见 `dify/dsl/official-doc-workflow-s8.yml`。
 
@@ -282,7 +283,7 @@ git checkout main
 git pull --ff-only
 ```
 
-阶段一历史快照仍可通过 `stage1-v1.4` tag 查看；`stage2-v1.0` 将在 S10 完成干净环境彩排后创建。S9 收口后的阶段二代码位于默认分支。
+阶段一历史快照仍可通过 `stage1-v1.4` tag 查看；阶段二本地 `stage2-v1.0` 已创建，tag 无覆盖克隆彩排、远程推送和 Release 仍待后续；S10 临时快照彩排见 `docs/stage2-tech-validation.md` 第 19 节，已知边界见 `docs/stage2-known-boundaries.md`。S9 收口后的阶段二代码位于默认分支。
 
 ### 6.2 启动后端
 
@@ -509,9 +510,12 @@ curl -OJ "http://localhost:8080/api/workflow/$RUN_ID/export?format=docx"
 ```
 
 - 确认动作仅接受 `approve`、`modify`、`reject`；非法动作、已确认、已过期或记录不存在返回 `code=5005`，HTTP 仍为 200，由前端按业务码处理。
-- 导出仅对 `SUCCEEDED` 开放；未确认、已驳回、失败、过期或记录不存在返回 `code=5006`。导出文件名会去除 Windows 非法字符，响应设置 `Content-Disposition` 与 `no-store`。
-- 运行状态保存在后端内存，重启后清空；暂停后不要重启后端。确认提交成功后 Dify 会异步恢复并完成 `human_confirm → end`，后端不消费恢复流。
-- 前端入口为“公文工作流”页：填写任务/可选草稿 → 发起 → 查看节点与工具结果 → 编辑并确认/驳回 → 下载 Markdown 或 DOCX。
+- `approve`/`modify` 返回 `SUCCEEDED`；首次 `reject` 返回 `RETRYING` 并在后台重新生成（`retryCount=1`），前端轮询 `GET /api/workflow/{runId}` 获取新的 `WAITING_CONFIRM` 草稿；再次 `reject` 返回 `REJECTED`；重新生成失败返回 `FAILED` + `errorCode=5004`。
+- 驳回回退通过重新调用同一 Dify Workflow 实现（DSL 不新增节点级回滚路径，`s8-v1.0` 保持不变）；重新生成耗时与首次生成相近，期间不可导出。
+- 导出仅对 `SUCCEEDED` 开放；未确认、重新生成中、已驳回、失败、过期或记录不存在返回 `code=5006`。导出文件名会去除 Windows 非法字符，响应设置 `Content-Disposition` 与 `no-store`。
+- 导出内容包含标题、主送机关、正文、落款、日期、格式/术语校验摘要、引用列表和确认记录（动作/时间/traceId）。引用条目使用检索原文的段落序号（不额外 +1）、文档名、相关度和摘录；未执行检索或检索无结果时写入明确说明，不伪造引用。
+- 运行状态保存在后端内存，重启后清空；暂停后不要重启后端。通过/修改提交后 Dify 异步恢复并完成 `human_confirm → end`，后端不消费恢复流；驳回时后端另行发起新一次工作流生成。
+- 前端入口为“公文工作流”页：填写任务/可选草稿 → 发起 → 查看节点与工具结果 → 编辑并确认/驳回（可填驳回意见）→ 等待重新生成 → 再次确认 → 下载 Markdown 或 DOCX。
 
 ```bash
 curl -s -X POST http://localhost:8080/api/format/check \
@@ -538,7 +542,7 @@ curl -s -X POST http://localhost:8080/api/terms/check \
 1. **结构化抽取**：打开抽取面板或使用 curl，提交正常公文和稀疏文本，展示五字段 JSON 与 `null` 结果；说明去围栏、重试一次、`5003` 兜底。
 2. **知识库问答**：切换到“知识库问答”，选择 B 库提问“2027年元旦放假几天？”，观察逐字输出、停止按钮、引用卡片和点击编号后的定位高亮；再问一个资料外问题展示“资料中未找到依据”；切换 A 库重复一次，展示 A/B 路由。
 3. **Dify**：打开 http://localhost/，说明阶段一 Chatbot 是独立交付物，阶段二 RAG 页面依赖 `RAG对话` / `RAG对话-A` 与 A/B 数据集；Workflow 应用已发布 `s8-v1.0`，包含 `human_input` 节点。
-4. **公文工作流**：切换到“公文工作流”，发起任务；展示格式/用语工具结果、`WAITING_CONFIRM` 状态与草稿编辑，修改后通过并下载 Markdown/DOCX；再发起一次并驳回，说明导出返回 `5006`。
+4. **公文工作流**：切换到“公文工作流”，发起任务；展示格式/用语工具结果、`WAITING_CONFIRM` 状态与草稿编辑，修改后通过并下载 Markdown/DOCX；再发起一次，填写驳回意见后驳回，展示 `RETRYING → WAITING_CONFIRM` 的自动重新生成，再次驳回进入 `REJECTED` 且导出返回 `5006`。
 5. **密钥检查**：
 
 ```bash
@@ -548,7 +552,7 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 
 预期：没有 `.env` 被跟踪；没有真实 Key（只允许 `.env.example` 中的占位符）。
 
-完整话术见 [演示脚本](docs/demo-script.md)。
+完整话术见 [阶段二 8 分钟演示脚本](docs/demo-script-stage2.md)；阶段一脚本保留在 [历史演示脚本](docs/demo-script.md)。
 
 ## 九、常见问题
 
@@ -581,17 +585,24 @@ git log --all -p | grep -E 'sk-[A-Za-z0-9]{20,}' | head
 
 阶段二 S9 已完成（2026-11-26）：README、接口文档、DSL 说明、数据清单、演示脚本、Dify 部署记录与技能文档已收口；新增 `scripts/regression/workflow_e2e.py` 和 `scripts/regression/check_docs_consistency.py`；四批回归（静态、构建测试、真实 Workflow E2E、文档/DSL 一致性）结果见 `logs/regression/20261126-1441/` 和 `docs/stage2-tech-validation.md` 第 15 节。
 
-阶段二截至 S9 尚未完成：
+阶段二 S9 后增量（2026-11-26）：补齐 FR-10 驳回回退。首次驳回后清空 `draft`，将上一版草稿与驳回意见附加到 `task`，强制重新检索生成，最多重试 1 次；再次驳回进入 `REJECTED`。后端新增 `RETRYING` 状态与 `retryCount` 字段，前端支持驳回意见、重新生成轮询和第二次确认；Dify DSL `s8-v1.0` 不变。后端全量测试 99/99 通过，真实 Workflow E2E 17 步通过，证据见 `logs/regression/20261126-fr10/`。
 
-- S10 干净环境彩排、15 题最终评测复核、汇报材料与 `stage2-v1.0` 标签。
+阶段二 S9 后增量（2026-11-26，FR-13）：Workflow 视图新增 `citations`，从知识检索节点输出解析并复用 RAG 引用映射（去重、按分数排序、摘录最多 500 字、`page=null`）；Markdown/DOCX 导出新增引用列表与确认记录（动作/时间/traceId），保留正文和格式/术语校验摘要。后端全量测试 104/104 通过，真实 Workflow E2E 17 步通过，证据见 `logs/regression/20261126-fr13/`。
+
+阶段二 W4 最终评测与材料（2026-11-26）：经真实 RAG 链路顺序执行 15 题 × A/B，A/B 均 10/10 命中、5/5 正确拒答、非拒答引用完整 10/10、SSE 协议完整 15/15，HTTP 200 30/30、错误 0；平均首字/总耗时 A 2093/2356 ms、B 1618/1896 ms。证据见未跟踪目录 `logs/regression/20261126-w4/live-eval/`，记录并入 `docs/stage2-eval-report.md` 第 7 节。W4 材料已生成：`docs/report-stage2.md`、`docs/learning-notes-stage2.md`、`docs/demo-script-stage2.md`；UI 主链路（RAG 引用、Workflow 修改通过、实际下载、两次驳回）已用 headless Chrome 彩排通过；阶段二 PR/评审偏差如实记录在 `docs/pr-log.md`。
+
+阶段二截至当前尚未完成：
+
+- 阶段二同伴评审/PR（无推送与 PR 授权，已记录偏差）；本地 `stage2-v1.0` 已创建，但 tag 无覆盖克隆彩排、远程推送/Release、≤3 分钟 Workflow 录屏与架构图仍待完成。已知边界见 `docs/stage2-known-boundaries.md`。
 
 已知限制：
 
 - Workflow 运行状态仅保存在后端内存，重启即清空，不支持多实例共享；
-- 确认提交成功后，后端立即返回 `SUCCEEDED/REJECTED`，Dify 恢复流由 Dify 自行完成，后端不再回读最终节点；
+- 通过/修改提交成功后，后端立即返回 `SUCCEEDED`，Dify 恢复流由 Dify 自行完成，后端不再回读最终节点；
+- 驳回后的回退不是 Dify 节点级回滚：后端重新调用同一 Workflow 并清空 `draft`（S8 中非空 `draft` 会跳过生成），上一版草稿和驳回意见写入 `task`，因此会重新执行检索与生成；DSL 中的 `human_confirm` 三个分支仍直接连到 `end`；
 - 确认过期依赖 Dify `human_input` 节点的 `expiration_time`，当前配置为 1 天；后端会在查询/确认时惰性标记过期。
-- **FR-10 口径差异**：需求提到驳回后回退生成节点并最多重试 1 次；S8 已验收实现为 `reject` 后进入 `REJECTED` 终态，需要重新发起任务，不自动回退。S9 如实记录，不降低验收标准，也不把它伪装成已实现。
-- **FR-13 口径差异**：需求提到导出含引用列表；当前 Markdown/DOCX 导出包含正文、校验摘要和确认结果，不包含知识检索引用列表。知识库问答页仍有引用；导出补引用属于独立功能增量，S9 不临时改功能。
+- **FR-10 已实现**：首次 `reject` 自动重新生成并再次人工确认，最多重试 1 次；第二次驳回为终态。真实链路验证记录见 `docs/stage2-tech-validation.md` 第 16 节。
+- **FR-13 已实现**：导出包含引用列表与确认记录，引用字段与 RAG 问答一致（`docName`、`segmentIndex`、`excerpt`、`page=null`、`score`）；检索无结果或直接使用已有草稿时，导出会写明“未返回可引用片段”或“未执行检索”，不伪造引用。真实链路验证记录见 `docs/stage2-tech-validation.md` 第 17 节。
 - **OpenAPI 选择**：本项目为本地单用户演示，接口契约采用 README + `docs/api.md` 的 Markdown/curl/SSE 示例，并由 `check_docs_consistency.py` 校验；不引入 springdoc，不维护独立 OpenAPI YAML。
 - **数据来源**：20 份资料的来源 URL 已从 PDF 内嵌链接确认 3 条，其余 17 条仍标记“URL 待补录”，不编造；补齐后可重新生成清单。
 
@@ -626,6 +637,10 @@ feat(chat): 增加 SSE 流式对话接口
 - [Dify 部署记录](docs/dify-setup.md)
 - [阶段二技术验证记录](docs/stage2-tech-validation.md)
 - [阶段二评测报告](docs/stage2-eval-report.md)
+- [阶段二汇报单](docs/report-stage2.md)
+- [阶段二学习笔记](docs/learning-notes-stage2.md)
+- [阶段二 8 分钟演示脚本](docs/demo-script-stage2.md)
+- [阶段二已知边界与后续处理](docs/stage2-known-boundaries.md)
 - [公文格式与用语校验技能](docs/skills/official-doc-format.md)
 - [S7/S8 Workflow DSL 与导入说明](dify/dsl/README.md)
 - [PR 与评审记录](docs/pr-log.md)
